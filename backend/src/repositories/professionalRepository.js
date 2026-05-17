@@ -1,30 +1,9 @@
-import { getFirestore } from '../config/firebase.js';
+import { createHybridRepository } from './hybrid/createHybridRepository.js';
+import { ProfessionalRepositoryFirestore } from './firestore/professionalRepository.firestore.js';
+import { ProfessionalRepositoryMongo } from './mongo/professionalRepository.mongo.js';
 
-export class ProfessionalRepository {
-  constructor(db = getFirestore()) {
-    this.db = db;
-    this.col = this.db.collection('profissionais');
-  }
-
-  async create(data) {
-    const payload = {
-      ...data,
-      ativo: data.ativo !== false,
-      createdAt: new Date().toISOString(),
-    };
-    const ref = await this.col.add(payload);
-    return { id: ref.id, ...payload };
-  }
-
-  async listActive() {
-    const snap = await this.col.where('ativo', '==', true).get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  }
-
-  async getById(id) {
-    const snap = await this.col.doc(id).get();
-    if (!snap.exists) return null;
-    return { id: snap.id, ...snap.data() };
-  }
-}
-
+export const ProfessionalRepository = createHybridRepository(
+  ProfessionalRepositoryFirestore,
+  ProfessionalRepositoryMongo,
+  ['create']
+);
