@@ -1,4 +1,5 @@
 import { getMongoDb } from '../../config/mongo.js';
+import { validarCpfBr } from '../../utils/cpf.js';
 import { toEntity, toEntityList } from './mongoDoc.js';
 
 function normTel(t) {
@@ -12,28 +13,40 @@ export class PacienteRepositoryMongo {
 
   async upsert({ nome, telefone, cpf = null, dataNascimento = null }) {
     const tel = normTel(telefone);
+    const v = validarCpfBr(cpf);
+    if (!v.ok) {
+      const err = new Error(v.message);
+      err.status = 400;
+      throw err;
+    }
     if (!tel || !String(nome || '').trim()) {
       const err = new Error('Nome e telefone são obrigatórios');
       err.status = 400;
       throw err;
     }
-    const cpfDigits = cpf ? String(cpf).replace(/\D/g, '') : null;
     const payload = {
       telefone: tel,
       nome: String(nome).trim(),
-      cpf: cpfDigits && cpfDigits.length === 11 ? cpfDigits : null,
+      cpf: v.digits,
       dataNascimento: dataNascimento ? String(dataNascimento).trim() : null,
-      legacyId: tel,
+      legacyId: v.digits,
       updatedAt: new Date().toISOString(),
     };
-    await this.col().updateOne({ _id: tel }, { $set: payload }, { upsert: true });
-    return this.getByTelefone(tel);
+    await this.col().updateOne({ _id: v.digits }, { $set: payload }, { upsert: true });
+    return this.getByCpf(v.digits);
+  }
+
+  async getByCpf(cpf) {
+    const v = validarCpfBr(cpf);
+    if (!v.ok) return null;
+    const doc = await this.col().findOne({ _id: v.digits });
+    return toEntity(doc);
   }
 
   async getByTelefone(telefone) {
     const tel = normTel(telefone);
     if (!tel) return null;
-    const doc = await this.col().findOne({ _id: tel });
+    const doc = await this.col().findOne({ telefone: tel });
     return toEntity(doc);
   }
 
@@ -42,25 +55,26 @@ export class PacienteRepositoryMongo {
     return toEntityList(docs);
   }
 
-  async updateObservacoes(telefone, observacoes) {
-    const tel = normTel(telefone);
-    if (!tel) {
-      const err = new Error('Telefone inválido');
+  async updateObservacoes(pacienteId, observacoes) {
+    const v = validarCpfBr(pacienteId);
+    const id = v.ok ? v.digits : String(pacienteId || '').replace(/\D/g, '');
+    if (!id || id.length !== 11) {
+      const err = new Error('CPF do paciente inválido');
       err.status = 400;
       throw err;
     }
     await this.col().updateOne(
-      { _id: tel },
+      { _id: id },
       {
         $set: {
           observacoes: String(observacoes ?? ''),
           updatedAt: new Date().toISOString(),
-          legacyId: tel,
-          telefone: tel,
+          legacyId: id,
+          cpf: id,
         },
       },
       { upsert: true }
     );
-    return this.getByTelefone(tel);
+    return this.getByCpf(id);
   }
 }

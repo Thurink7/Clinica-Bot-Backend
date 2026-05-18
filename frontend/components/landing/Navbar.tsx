@@ -59,10 +59,16 @@ export function LandingNavbar() {
             Entrar
           </Link>
           <Link
-            href="/login"
+            href="/cadastro"
+            className="hidden h-10 items-center rounded-lg px-3 text-sm font-medium text-primary hover:bg-secondary/60 sm:inline-flex"
+          >
+            Aderir
+          </Link>
+          <Link
+            href="/cadastro"
             className="inline-flex h-10 items-center rounded-xl bg-gradient-to-br from-[hsl(224,80%,14%)] via-primary to-[hsl(217,91%,35%)] px-5 text-sm font-semibold text-primary-foreground shadow-elegant transition hover:shadow-glow"
           >
-            Testar grátis
+            Fale conosco
           </Link>
         </div>
       </nav>

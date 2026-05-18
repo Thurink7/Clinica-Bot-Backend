@@ -22,6 +22,7 @@ import {
   getWebhookVerify,
 } from '../controllers/webhookController.js';
 import { postCadastroPaciente, patchPacienteObservacoes } from '../controllers/pacienteController.js';
+import { postContato } from '../controllers/contatoController.js';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.put('/config', putConfig);
 router.get('/pacientes', getPacientes);
 router.post('/pacientes/cadastro', postCadastroPaciente);
 router.patch('/pacientes/observacoes', patchPacienteObservacoes);
+router.post('/contato', postContato);
 
 router.post('/profissionais', postProfissional);
 router.get('/profissionais', getProfissionais);

@@ -25,18 +25,18 @@ export function CTA() {
             </p>
 
             <div className="flex flex-col justify-center gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="inline-flex h-14 items-center justify-center rounded-xl bg-accent px-10 text-base font-semibold text-accent-foreground shadow-md transition hover:bg-accent/90"
-              >
-                Começar agora
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex h-14 items-center justify-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-10 text-base font-semibold text-primary-foreground backdrop-blur transition hover:bg-primary-foreground/15"
-              >
-                Acessar painel
-              </Link>
+            <Link
+              href="/cadastro"
+              className="inline-flex h-14 items-center justify-center rounded-xl bg-accent px-10 text-base font-semibold text-accent-foreground shadow-md transition hover:bg-accent/90"
+            >
+              Quero aderir
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex h-14 items-center justify-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-10 text-base font-semibold text-primary-foreground backdrop-blur transition hover:bg-primary-foreground/15"
+            >
+              Acessar painel
+            </Link>
             </div>
           </div>
         </div>

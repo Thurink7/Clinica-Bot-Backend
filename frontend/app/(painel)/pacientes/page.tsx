@@ -11,7 +11,7 @@ function formatCpfDisplay(cpf: string | null | undefined) {
 }
 
 function formatIsoDateBR(iso: string | null | undefined) {
-  if (!iso) return '—';
+  if (!iso) return '?';
   const [y, m, d] = iso.split('-');
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
@@ -42,7 +42,7 @@ export default function PacientesPage() {
         fetchJson<Profissional[]>('/profissionais'),
         fetchJson<PacienteRow[]>(
           profissionalId
-            ? `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
+            — `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
             : '/pacientes'
         ),
       ]);
@@ -90,8 +90,9 @@ export default function PacientesPage() {
   async function cadastrarPaciente(e: React.FormEvent) {
     e.preventDefault();
     setCadMsg(null);
-    if (!cadNome.trim() || !cadTel.trim()) {
-      setCadMsg('Preencha nome e telefone.');
+    const cpfDigits = cadCpf.replace(/\D/g, '');
+    if (!cadNome.trim() || !cadTel.trim() || cpfDigits.length !== 11) {
+      setCadMsg('Preencha nome, telefone e CPF válido (11 dígitos).');
       return;
     }
     setCadSaving(true);
@@ -101,7 +102,7 @@ export default function PacientesPage() {
         body: JSON.stringify({
           nome: cadNome.trim(),
           telefone: cadTel.replace(/\D/g, ''),
-          cpf: cadCpf.replace(/\D/g, '') || null,
+          cpf: cpfDigits,
           dataNascimento: cadNasc || null,
         }),
       });
@@ -124,10 +125,13 @@ export default function PacientesPage() {
     try {
       await fetchJson('/pacientes/observacoes', {
         method: 'PATCH',
-        body: JSON.stringify({ telefone: prontuario.telefone, observacoes: obsDraft }),
+        body: JSON.stringify({
+          cpf: prontuario.cpf || prontuario.id,
+          observacoes: obsDraft,
+        }),
       });
       await load();
-      setProntuario((prev) => (prev ? { ...prev, observacoes: obsDraft } : null));
+      setProntuario((prev) => (prev — { ...prev, observacoes: obsDraft } : null));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -176,7 +180,7 @@ export default function PacientesPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold text-brand-secondary">Cadastrar paciente</h2>
         <p className="mb-4 text-sm text-slate-500">
-          Registro próprio do paciente na clínica (não cria consulta). Consultas continuam sendo agendadas em Consultas ou
+          Registro pr?prio do paciente na cl?nica (n?o cria consulta). Consultas continuam sendo agendadas em Consultas ou
           pelo bot.
         </p>
         <form onSubmit={cadastrarPaciente} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -198,7 +202,8 @@ export default function PacientesPage() {
             type="text"
             value={cadCpf}
             onChange={(e) => setCadCpf(e.target.value)}
-            placeholder="CPF (opcional)"
+            placeholder="CPF (obrigatório)"
+            required
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
           <input
@@ -212,7 +217,7 @@ export default function PacientesPage() {
             disabled={cadSaving}
             className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-secondary disabled:opacity-50"
           >
-            {cadSaving ? 'Salvando…' : 'Salvar cadastro'}
+            {cadSaving — 'Salvando…' : 'Salvar cadastro'}
           </button>
         </form>
         {cadMsg && <p className="mt-3 text-sm text-slate-700">{cadMsg}</p>}
@@ -223,18 +228,17 @@ export default function PacientesPage() {
       <div className="space-y-4">
         {filtered.map((p) => (
           <div
-            key={p.telefone}
+            key={p.id || p.cpf || p.telefone}
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <div className="font-semibold text-slate-900">{p.nome}</div>
-                <div className="text-sm text-slate-500">{p.telefone}</div>
-                {(p.cpf || p.dataNascimento) && (
-                  <div className="mt-1 text-xs text-slate-500">
-                    {p.cpf && <span>CPF: {formatCpfDisplay(p.cpf)} · </span>}
-                    {p.dataNascimento && <span>Nasc.: {formatIsoDateBR(p.dataNascimento)}</span>}
-                  </div>
+                <div className="text-sm text-slate-500">
+                  ID (CPF): {formatCpfDisplay(p.cpf || p.id)} · Tel: {p.telefone}
+                </div>
+                {p.dataNascimento && (
+                  <p className="mt-1 text-xs text-slate-500">Nasc.: {formatIsoDateBR(p.dataNascimento)}</p>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -259,8 +263,8 @@ export default function PacientesPage() {
                     </span>
                     {(c.profissionalId || c.servico) && (
                       <span className="text-slate-500">
-                        — {c.profissionalId ? `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : 'Dr(a). —'}
-                        {c.servico ? ` · ${String(c.servico).toUpperCase()}` : ''}
+                        — {c.profissionalId — `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : 'Dr(a). ?'}
+                        {c.servico — ` — ${String(c.servico).toUpperCase()}` : ''}
                       </span>
                     )}
                     <StatusBadge status={c.status} />
@@ -315,13 +319,13 @@ export default function PacientesPage() {
               </div>
             </dl>
             <div className="mt-4">
-              <label className="mb-1 block text-xs font-medium text-slate-600">Observações clínicas / administrativas</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Observa??es cl?nicas / administrativas</label>
               <textarea
                 value={obsDraft}
                 onChange={(e) => setObsDraft(e.target.value)}
                 rows={5}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                placeholder="Registre evolução, alergias, preferências de contato…"
+                placeholder="Registre evolu??o, alergias, prefer?ncias de contato?"
               />
               <button
                 type="button"
@@ -329,12 +333,12 @@ export default function PacientesPage() {
                 disabled={obsSaving}
                 className="mt-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-secondary disabled:opacity-50"
               >
-                {obsSaving ? 'Salvando…' : 'Salvar observações'}
+                {obsSaving — 'Salvando…' : 'Salvar observa??es'}
               </button>
             </div>
             <div className="mt-6">
               <h3 className="mb-2 text-sm font-semibold text-brand-secondary">Consultas registradas</h3>
-              {prontuario.consultas.length === 0 ? (
+              {prontuario.consultas.length === 0 — (
                 <p className="text-sm text-slate-500">Nenhuma consulta vinculada a este telefone ainda.</p>
               ) : (
                 <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">

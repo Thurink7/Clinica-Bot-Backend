@@ -6,6 +6,7 @@ import { getFirebaseDb } from '@/lib/firebaseAuth';
 import type { ClinicConfig, Consulta } from '@/lib/api';
 import { fetchJson } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
+import { MonthCalendar } from '@/components/consultas/MonthCalendar';
 import { generateSlotsForDay } from '@/lib/slotsClient';
 
 type SlotRow = {
@@ -37,6 +38,9 @@ export default function ConsultasPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1);
+  const [monthConsultas, setMonthConsultas] = useState<Consulta[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +179,49 @@ export default function ConsultasPage() {
     };
   }, [date]);
 
+  useEffect(() => {
+    const lastDay = new Date(viewYear, viewMonth, 0).getDate();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const de = `${viewYear}-${pad(viewMonth)}-01`;
+    const ate = `${viewYear}-${pad(viewMonth)}-${pad(lastDay)}`;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchJson<Consulta[]>(
+          `/consultas?de=${encodeURIComponent(de)}&ate=${encodeURIComponent(ate)}`
+        );
+        if (!cancelled) setMonthConsultas(rows);
+      } catch {
+        if (!cancelled) setMonthConsultas([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewYear, viewMonth]);
+
+  const daysWithConsultas = useMemo(() => {
+    const s = new Set<string>();
+    for (const c of monthConsultas) {
+      if (c.status !== 'cancelado') s.add(c.data);
+    }
+    return s;
+  }, [monthConsultas]);
+
+  function handleChangeMonth(year: number, month: number) {
+    setViewYear(year);
+    setViewMonth(month);
+  }
+
+  function handleSelectDate(iso: string) {
+    setDate(iso);
+    const [y, m] = iso.split('-').map(Number);
+    if (y && m) {
+      setViewYear(y);
+      setViewMonth(m);
+    }
+  }
+
   function rowStyles(row: SlotRow): string {
     const c = row.consulta;
     if (!c) return 'border-slate-200 bg-brand-muted text-slate-600';
@@ -185,16 +232,19 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-secondary">Consultas</h1>
-          <p className="text-sm text-slate-600">Horários do expediente, status e novos agendamentos.</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-brand-muted px-3 py-2">
-          <label className="mr-2 text-sm text-slate-600">Data</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent text-sm" />
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-brand-secondary">Consultas</h1>
+        <p className="text-sm text-slate-600">Horários do expediente, status e novos agendamentos.</p>
       </div>
+
+      <MonthCalendar
+        selectedDate={date}
+        onSelectDate={handleSelectDate}
+        daysWithConsultas={daysWithConsultas}
+        viewYear={viewYear}
+        viewMonth={viewMonth}
+        onChangeMonth={handleChangeMonth}
+      />
 
       <div className="flex flex-wrap gap-4 text-xs text-slate-600">
         <span className="flex items-center gap-2">

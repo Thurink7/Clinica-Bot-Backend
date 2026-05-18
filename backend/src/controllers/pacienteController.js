@@ -13,9 +13,9 @@ export async function postCadastroPaciente(req, res, next) {
 
 export async function patchPacienteObservacoes(req, res, next) {
   try {
-    const telefone = req.body?.telefone;
+    const pacienteId = req.body?.cpf || req.body?.pacienteId || req.body?.telefone;
     const observacoes = req.body?.observacoes;
-    const out = await pacienteRepo.updateObservacoes(telefone, observacoes);
+    const out = await pacienteRepo.updateObservacoes(pacienteId, observacoes);
     res.json(out);
   } catch (e) {
     next(e);

@@ -13,15 +13,17 @@ async function buildPacientesMerged(profissionalId) {
     : await consultaRepo.listPacientesAggregated();
   const cadastros = await pacienteRepo.listAll();
   const cadByTel = new Map(cadastros.map((c) => [String(c.telefone).replace(/\D/g, ''), c]));
-
   const map = new Map();
   for (const a of agregados) {
     const tel = String(a.telefone).replace(/\D/g, '');
     const cad = cadByTel.get(tel) || {};
-    map.set(tel, {
+    const cpf = cad.cpf || cad.id || null;
+    const key = cpf || `tel:${tel}`;
+    map.set(key, {
+      id: cpf || tel,
       telefone: tel,
       nome: (cad.nome && String(cad.nome).trim()) || a.nome,
-      cpf: cad.cpf ?? null,
+      cpf: cpf,
       dataNascimento: cad.dataNascimento ?? null,
       observacoes: cad.observacoes ?? null,
       consultas: a.consultas,
@@ -29,12 +31,14 @@ async function buildPacientesMerged(profissionalId) {
   }
   if (!profissionalId) {
     for (const c of cadastros) {
-      const tel = String(c.telefone).replace(/\D/g, '');
-      if (!map.has(tel)) {
-        map.set(tel, {
-          telefone: tel,
+      const cpf = c.cpf || c.id;
+      const key = cpf || `tel:${String(c.telefone).replace(/\D/g, '')}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: cpf || c.id,
+          telefone: String(c.telefone).replace(/\D/g, ''),
           nome: c.nome,
-          cpf: c.cpf ?? null,
+          cpf: cpf ?? null,
           dataNascimento: c.dataNascimento ?? null,
           observacoes: c.observacoes ?? null,
           consultas: [],
