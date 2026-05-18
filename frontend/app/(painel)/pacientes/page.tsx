@@ -42,7 +42,7 @@ export default function PacientesPage() {
         fetchJson<Profissional[]>('/profissionais'),
         fetchJson<PacienteRow[]>(
           profissionalId
-            — `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
+            ? `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
             : '/pacientes'
         ),
       ]);
@@ -131,7 +131,7 @@ export default function PacientesPage() {
         }),
       });
       await load();
-      setProntuario((prev) => (prev — { ...prev, observacoes: obsDraft } : null));
+      setProntuario((prev) => (prev ? { ...prev, observacoes: obsDraft } : null));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -180,8 +180,7 @@ export default function PacientesPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-1 text-lg font-semibold text-brand-secondary">Cadastrar paciente</h2>
         <p className="mb-4 text-sm text-slate-500">
-          Registro pr?prio do paciente na cl?nica (n?o cria consulta). Consultas continuam sendo agendadas em Consultas ou
-          pelo bot.
+          Registro próprio do paciente na clínica (não cria consulta). Consultas continuam sendo agendadas em Consultas ou pelo bot.
         </p>
         <form onSubmit={cadastrarPaciente} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input
@@ -192,7 +191,7 @@ export default function PacientesPage() {
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
           <input
-            type="tel"
+            type="text"
             value={cadTel}
             onChange={(e) => setCadTel(e.target.value)}
             placeholder="Telefone (com DDD)"
@@ -217,7 +216,7 @@ export default function PacientesPage() {
             disabled={cadSaving}
             className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-secondary disabled:opacity-50"
           >
-            {cadSaving — 'Salvando…' : 'Salvar cadastro'}
+            {cadSaving ? 'Salvando…' : 'Salvar cadastro'}
           </button>
         </form>
         {cadMsg && <p className="mt-3 text-sm text-slate-700">{cadMsg}</p>}
@@ -263,8 +262,8 @@ export default function PacientesPage() {
                     </span>
                     {(c.profissionalId || c.servico) && (
                       <span className="text-slate-500">
-                        — {c.profissionalId — `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : 'Dr(a). ?'}
-                        {c.servico — ` — ${String(c.servico).toUpperCase()}` : ''}
+                        — {c.profissionalId ? `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : 'Dr(a). ?'}
+                        {c.servico ? ` — ${String(c.servico).toUpperCase()}` : ''}
                       </span>
                     )}
                     <StatusBadge status={c.status} />
@@ -302,7 +301,7 @@ export default function PacientesPage() {
             </div>
             <dl className="space-y-2 border-b border-slate-100 pb-4 text-sm">
               <div>
-                <dt className="text-xs font-medium text-slate-500">Nome</dt>
+                <option className="text-xs font-medium text-slate-500">Nome</option>
                 <dd className="font-medium text-slate-900">{prontuario.nome}</dd>
               </div>
               <div>
@@ -319,13 +318,13 @@ export default function PacientesPage() {
               </div>
             </dl>
             <div className="mt-4">
-              <label className="mb-1 block text-xs font-medium text-slate-600">Observa??es cl?nicas / administrativas</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Observações clínicas / administrativas</label>
               <textarea
                 value={obsDraft}
                 onChange={(e) => setObsDraft(e.target.value)}
                 rows={5}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                placeholder="Registre evolu??o, alergias, prefer?ncias de contato?"
+                placeholder="Registre evolução, alergias, preferências de contato..."
               />
               <button
                 type="button"
@@ -333,12 +332,12 @@ export default function PacientesPage() {
                 disabled={obsSaving}
                 className="mt-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-secondary disabled:opacity-50"
               >
-                {obsSaving — 'Salvando…' : 'Salvar observa??es'}
+                {obsSaving ? 'Salvando…' : 'Salvar observações'}
               </button>
             </div>
             <div className="mt-6">
               <h3 className="mb-2 text-sm font-semibold text-brand-secondary">Consultas registradas</h3>
-              {prontuario.consultas.length === 0 — (
+              {prontuario.consultas.length === 0 ? (
                 <p className="text-sm text-slate-500">Nenhuma consulta vinculada a este telefone ainda.</p>
               ) : (
                 <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
