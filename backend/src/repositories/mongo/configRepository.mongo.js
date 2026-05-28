@@ -8,23 +8,25 @@ export class ConfigRepositoryMongo {
     this.col = () => getMongoDb().collection('configuracoes');
   }
 
-  async get() {
-    const doc = await this.col().findOne({ _id: DOC_ID });
+  async get(parceiroId = 'default') {
+    const docId = parceiroId || 'default';
+    const doc = await this.col().findOne({ _id: docId });
     if (!doc) {
       const def = defaultClinicConfig();
-      await this.col().insertOne({ _id: DOC_ID, ...def, legacyId: DOC_ID });
+      await this.col().insertOne({ _id: docId, ...def, legacyId: docId });
       return def;
     }
     const { _id, legacyId, ...data } = doc;
     return data;
   }
 
-  async update(partial) {
+  async update(partial, parceiroId = 'default') {
+    const docId = parceiroId || 'default';
     await this.col().updateOne(
-      { _id: DOC_ID },
-      { $set: { ...partial, legacyId: DOC_ID } },
+      { _id: docId },
+      { $set: { ...partial, legacyId: docId } },
       { upsert: true }
     );
-    return this.get();
+    return this.get(docId);
   }
 }

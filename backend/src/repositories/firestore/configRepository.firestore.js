@@ -9,19 +9,21 @@ export class ConfigRepositoryFirestore {
     this.col = this.db.collection('configuracoes');
   }
 
-  async get() {
-    const snap = await this.col.doc(DOC_ID).get();
+  async get(parceiroId = 'default') {
+    const docId = parceiroId || 'default';
+    const snap = await this.col.doc(docId).get();
     if (!snap.exists) {
       const def = defaultClinicConfig();
-      await this.col.doc(DOC_ID).set(def);
+      await this.col.doc(docId).set(def);
       return def;
     }
     return snap.data();
   }
 
-  async update(partial) {
-    const ref = this.col.doc(DOC_ID);
+  async update(partial, parceiroId = 'default') {
+    const docId = parceiroId || 'default';
+    const ref = this.col.doc(docId);
     await ref.set(partial, { merge: true });
-    return this.get();
+    return this.get(docId);
   }
 }
