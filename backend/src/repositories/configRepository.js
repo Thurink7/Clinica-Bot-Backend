@@ -1,6 +1,8 @@
-import { getFirestore } from '../config/firebase.js';
-import { defaultClinicConfig } from '../utils/slots.js';
+import { createHybridRepository } from './hybrid/createHybridRepository.js';
+import { ConfigRepositoryFirestore } from './firestore/configRepository.firestore.js';
+import { ConfigRepositoryMongo } from './mongo/configRepository.mongo.js';
 
+<<<<<<< HEAD
 const DOC_ID = 'clinica';
 
 export class ConfigRepository {
@@ -27,3 +29,10 @@ export class ConfigRepository {
     return this.get(docId);
   }
 }
+=======
+export const ConfigRepository = createHybridRepository(
+  ConfigRepositoryFirestore,
+  ConfigRepositoryMongo,
+  ['update']
+);
+>>>>>>> a6dc9c54528b3420003e3d6a1924ee18b4f4aaf6

@@ -86,6 +86,33 @@ export default function DashboardPage() {
               ring="brand"
             />
           </div>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-base font-semibold text-brand-secondary">Distribuição do dia</h2>
+              <p className="mb-4 text-xs text-slate-500">Proporção entre confirmadas, agendadas e canceladas.</p>
+              <DashboardDonut
+                slices={[
+                  { label: 'Confirmadas', value: confirmadas, color: '#2563EB' },
+                  { label: 'Agendadas', value: list.filter((c) => c.status === 'agendado').length, color: '#94a3b8' },
+                  { label: 'Canceladas', value: canceladas, color: '#f87171' },
+                ]}
+              />
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-base font-semibold text-brand-secondary">Volume por status</h2>
+              <p className="mb-4 text-xs text-slate-500">Comparativo numérico das consultas de hoje.</p>
+              <DashboardBars
+                items={[
+                  { label: 'Total', value: total, color: '#1E40AF' },
+                  { label: 'Confirmadas', value: confirmadas, color: '#2563EB' },
+                  { label: 'Agendadas', value: list.filter((c) => c.status === 'agendado').length, color: '#64748b' },
+                  { label: 'Canceladas', value: canceladas, color: '#ef4444' },
+                ]}
+              />
+            </div>
+          </section>
+
           <section className="rounded-xl border border-slate-200 bg-brand-muted/40 p-4 shadow-sm">
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-brand-secondary">
               Próximas consultas de hoje
@@ -114,6 +141,93 @@ export default function DashboardPage() {
         </>
       )}
     </div>
+  );
+}
+
+function DashboardDonut({
+  slices,
+}: {
+  slices: { label: string; value: number; color: string }[];
+}) {
+  const rawSum = slices.reduce((a, s) => a + s.value, 0);
+  if (rawSum === 0) {
+    return <p className="text-center text-sm text-slate-500">Sem consultas hoje para montar o gráfico.</p>;
+  }
+  const sum = rawSum;
+  const cx = 90;
+  const cy = 90;
+  const r = 56;
+  const inner = 34;
+  let angle = -Math.PI / 2;
+  const paths: { d: string; color: string; label: string; value: number }[] = [];
+  for (const s of slices) {
+    if (s.value <= 0) continue;
+    const frac = s.value / sum;
+    const a2 = angle + frac * Math.PI * 2;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(a2);
+    const y2 = cy + r * Math.sin(a2);
+    const large = frac > 0.5 ? 1 : 0;
+    const xi = cx + inner * Math.cos(a2);
+    const yi = cy + inner * Math.sin(a2);
+    const xo = cx + inner * Math.cos(angle);
+    const yo = cy + inner * Math.sin(angle);
+    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${xi} ${yi} A ${inner} ${inner} 0 ${large} 0 ${xo} ${yo} Z`;
+    paths.push({ d, color: s.color, label: s.label, value: s.value });
+    angle = a2;
+  }
+  return (
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+      <svg viewBox="0 0 180 180" className="h-44 w-44 shrink-0">
+        {paths.map((p, i) => (
+          <path key={i} d={p.d} fill={p.color} stroke="white" strokeWidth="1" />
+        ))}
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill="#1e293b" fontSize="13" fontWeight="700">
+          {sum}
+        </text>
+        <text x={cx} y={cy + 16} textAnchor="middle" fill="#64748b" fontSize="9">
+          consultas
+        </text>
+      </svg>
+      <ul className="space-y-2 text-sm">
+        {slices.map((s) => (
+          <li key={s.label} className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.color }} />
+            <span className="text-slate-700">
+              {s.label}: <strong>{s.value}</strong>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DashboardBars({ items }: { items: { label: string; value: number; color: string }[] }) {
+  const max = Math.max(...items.map((i) => i.value), 1);
+  const w = 220;
+  const rowH = 28;
+  const barH = 14;
+  return (
+    <svg viewBox={`0 0 ${w + 40} ${items.length * rowH + 8}`} className="h-auto w-full max-w-md">
+      {items.map((it, i) => {
+        const y = 12 + i * rowH;
+        const bw = (it.value / max) * w;
+        return (
+          <g key={it.label}>
+            <text x={0} y={y + barH - 2} fontSize="11" fill="#64748b">
+              {it.label}
+            </text>
+            <rect x={72} y={y} width={w} height={barH} rx={4} fill="#f1f5f9" />
+            <rect x={72} y={y} width={bw} height={barH} rx={4} fill={it.color} />
+            <text x={74 + w + 6} y={y + barH - 1} fontSize="12" fontWeight="600" fill="#0f172a">
+              {it.value}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

@@ -155,19 +155,66 @@ export class ConsultaService {
     return slots.filter((h) => !taken.has(h));
   }
 
-  /** Próximos N dias com slots livres (para menu WhatsApp) */
-  async proximosSlotsResumo(dias = 3, parceiroId = null) {
+  /**
+   * Próximos N dias úteis (conforme cfg.diasUteis) com ao menos um horário livre no expediente.
+   * Ignora fins de semana / dias fora de diasUteis e dias sem slots (feriado/fechado).
+   */
+  async proximosSlotsResumo(nDiasUteis = 5, parceiroId = null) {
+    const cfg = await this.config.get(parceiroId);
+    const setDow = new Set(cfg.diasUteis ?? [1, 2, 3, 4, 5]);
     const out = [];
-    const d = new Date();
-    for (let i = 0; i < dias; i++) {
-      const cur = new Date(d);
-      cur.setDate(d.getDate() + i);
+    let addDays = 0;
+    const maxScan = 90;
+    const base = new Date();
+    base.setHours(12, 0, 0, 0);
+    while (out.length < nDiasUteis && addDays < maxScan) {
+      const cur = new Date(base);
+      cur.setDate(base.getDate() + addDays);
+      addDays += 1;
+      const dow = cur.getDay();
+      if (!setDow.has(dow)) continue;
       const pad = (n) => String(n).padStart(2, '0');
       const ds = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`;
+      const slots = generateSlotsForDay(ds, cfg);
+      if (!slots.length) continue;
       const livres = await this.horariosDisponiveis(ds, null, parceiroId);
       if (livres.length) out.push({ data: ds, horarios: livres });
     }
     return out;
+  }
+
+  /** Próximos N dias úteis com slots, começando no dia seguinte a `aposData` (YYYY-MM-DD). */
+  async proximosSlotsResumoApos(aposDataIso, nDiasUteis = 5, parceiroId = null) {
+    const cfg = await this.config.get(parceiroId);
+    const setDow = new Set(cfg.diasUteis ?? [1, 2, 3, 4, 5]);
+    const out = [];
+    const base = new Date(String(aposDataIso || '').slice(0, 10) + 'T12:00:00');
+    if (Number.isNaN(base.getTime())) return [];
+    base.setDate(base.getDate() + 1);
+    let addDays = 0;
+    const maxScan = 90;
+    while (out.length < nDiasUteis && addDays < maxScan) {
+      const cur = new Date(base);
+      cur.setDate(base.getDate() + addDays);
+      addDays += 1;
+      const dow = cur.getDay();
+      if (!setDow.has(dow)) continue;
+      const pad = (n) => String(n).padStart(2, '0');
+      const ds = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`;
+      const slots = generateSlotsForDay(ds, cfg);
+      if (!slots.length) continue;
+      const livres = await this.horariosDisponiveis(ds, null, parceiroId);
+      if (livres.length) out.push({ data: ds, horarios: livres });
+    }
+    return out;
+  }
+
+  async listarConsultasReagendar(telefone) {
+    const tel = String(telefone || '').replace(/\D/g, '');
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const ds = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    return this.consultas.listFromDateByTelefone(ds, tel);
   }
 
   appointmentDateTime(consulta) {

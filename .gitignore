@@ -8,3 +8,4 @@ dist/
 .firebase/
 serviceAccount.json
 .firebase-emulator.json
+backend/scripts/migration-export/

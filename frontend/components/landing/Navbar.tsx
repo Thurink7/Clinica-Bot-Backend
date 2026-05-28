@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -20,9 +21,13 @@ export function LandingNavbar() {
     >
       <nav className="container mx-auto flex items-center justify-between px-6">
         <Link href="/" className="group flex items-center gap-2.5">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-md transition-all group-hover:shadow-glow">
-            <span className="font-display text-base font-bold text-primary-foreground">C</span>
-          </div>
+          <Image
+            src="/logo1.png"
+            alt="Clínica Agenda"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 rounded-xl object-contain shadow-md transition-all group-hover:shadow-glow"
+          />
           <span className="font-display text-lg font-bold tracking-tight text-primary">
             Clínica<span className="text-accent">Agenda</span>
           </span>
@@ -54,10 +59,16 @@ export function LandingNavbar() {
             Entrar
           </Link>
           <Link
-            href="/login"
+            href="/cadastro"
+            className="hidden h-10 items-center rounded-lg px-3 text-sm font-medium text-primary hover:bg-secondary/60 sm:inline-flex"
+          >
+            Aderir
+          </Link>
+          <Link
+            href="/cadastro"
             className="inline-flex h-10 items-center rounded-xl bg-gradient-to-br from-[hsl(224,80%,14%)] via-primary to-[hsl(217,91%,35%)] px-5 text-sm font-semibold text-primary-foreground shadow-elegant transition hover:shadow-glow"
           >
-            Testar grátis
+            Fale conosco
           </Link>
         </div>
       </nav>

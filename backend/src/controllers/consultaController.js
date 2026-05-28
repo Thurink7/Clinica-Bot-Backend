@@ -1,9 +1,53 @@
 import { ConsultaService } from '../services/consultaService.js';
 import { ConfigRepository } from '../repositories/configRepository.js';
 import { ConsultaRepository } from '../repositories/consultaRepository.js';
+import { PacienteRepository } from '../repositories/pacienteRepository.js';
 
 const service = new ConsultaService();
 const consultaRepo = new ConsultaRepository();
+const pacienteRepo = new PacienteRepository();
+
+async function buildPacientesMerged(profissionalId, parceiroId = null) {
+  const agregados = profissionalId
+    ? await consultaRepo.listPacientesAggregatedByProfessional(profissionalId, parceiroId)
+    : await consultaRepo.listPacientesAggregated(parceiroId);
+  const cadastros = await pacienteRepo.listAll();
+  const cadByTel = new Map(cadastros.map((c) => [String(c.telefone).replace(/\D/g, ''), c]));
+  const map = new Map();
+  for (const a of agregados) {
+    const tel = String(a.telefone).replace(/\D/g, '');
+    const cad = cadByTel.get(tel) || {};
+    const cpf = cad.cpf || cad.id || null;
+    const key = cpf || `tel:${tel}`;
+    map.set(key, {
+      id: cpf || tel,
+      telefone: tel,
+      nome: (cad.nome && String(cad.nome).trim()) || a.nome,
+      cpf: cpf,
+      dataNascimento: cad.dataNascimento ?? null,
+      observacoes: cad.observacoes ?? null,
+      consultas: a.consultas,
+    });
+  }
+  if (!profissionalId) {
+    for (const c of cadastros) {
+      const cpf = c.cpf || c.id;
+      const key = cpf || `tel:${String(c.telefone).replace(/\D/g, '')}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: cpf || c.id,
+          telefone: String(c.telefone).replace(/\D/g, ''),
+          nome: c.nome,
+          cpf: cpf ?? null,
+          dataNascimento: c.dataNascimento ?? null,
+          observacoes: c.observacoes ?? null,
+          consultas: [],
+        });
+      }
+    }
+  }
+  return [...map.values()].sort((x, y) => String(x.nome).localeCompare(String(y.nome), 'pt-BR'));
+}
 
 export async function postAgendar(req, res, next) {
   try {
@@ -102,9 +146,7 @@ export async function getPacientes(req, res, next) {
       ? String(req.query.profissionalId)
       : null;
     const parceiroId = req.user?.parceiroId || null;
-    const list = profissionalId
-      ? await consultaRepo.listPacientesAggregatedByProfessional(profissionalId, parceiroId)
-      : await consultaRepo.listPacientesAggregated(parceiroId);
+    const list = await buildPacientesMerged(profissionalId, parceiroId);
     res.json(list);
   } catch (e) {
     next(e);

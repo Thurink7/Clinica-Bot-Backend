@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { PacienteRow, Profissional } from '@/lib/api';
 import { fetchJson } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -16,6 +16,18 @@ type Prontuario = {
   dataProntuario: string;
 };
 
+function formatCpfDisplay(cpf: string | null | undefined) {
+  if (!cpf || cpf.length !== 11) return cpf || '—';
+  return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+}
+
+function formatIsoDateBR(iso: string | null | undefined) {
+  if (!iso) return '?';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
 export default function PacientesPage() {
   const [list, setList] = useState<PacienteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -23,11 +35,24 @@ export default function PacientesPage() {
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [profissionalId, setProfissionalId] = useState<string>('');
 
-  // CPF Link state
+  // Register Patient form state
+  const [cadNome, setCadNome] = useState('');
+  const [cadTel, setCadTel] = useState('');
+  const [cadCpf, setCadCpf] = useState('');
+  const [cadNasc, setCadNasc] = useState('');
+  const [cadSaving, setCadSaving] = useState(false);
+  const [cadMsg, setCadMsg] = useState<string | null>(null);
+
+  // Link CPF inline state
   const [editingCpfPhone, setEditingCpfPhone] = useState<string | null>(null);
   const [tempCpf, setTempCpf] = useState('');
 
-  // Prontuarios Modal State
+  // Observations Modal State (from branch)
+  const [obsPaciente, setObsPaciente] = useState<PacienteRow | null>(null);
+  const [obsDraft, setObsDraft] = useState('');
+  const [obsSaving, setObsSaving] = useState(false);
+
+  // Advanced Prontuarios Modal State (our SaaS features)
   const [selectedPaciente, setSelectedPaciente] = useState<PacienteRow | null>(null);
   const [prontuarios, setProntuarios] = useState<Prontuario[]>([]);
   const [loadingProntuarios, setLoadingProntuarios] = useState(false);
@@ -44,76 +69,95 @@ export default function PacientesPage() {
   const filtered = list.filter((p) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return p.nome.toLowerCase().includes(q) || p.telefone.includes(q) || (p.cpf && p.cpf.includes(q));
+    const cleanQ = q.replace(/\D/g, '');
+    return (
+      p.nome.toLowerCase().includes(q) ||
+      p.telefone.includes(q) ||
+      (p.cpf && p.cpf.includes(cleanQ))
+    );
   });
 
   const proById = new Map(profissionais.map((p) => [p.id, p]));
 
-  const loadPacientes = async () => {
+  const load = useCallback(async () => {
+    setError(null);
     try {
-      const pacientes = await fetchJson<PacienteRow[]>(
-        profissionalId
-          ? `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
-          : '/pacientes'
-      );
+      const [pros, pacientes] = await Promise.all([
+        fetchJson<Profissional[]>('/profissionais'),
+        fetchJson<PacienteRow[]>(
+          profissionalId
+            ? `/pacientes?profissionalId=${encodeURIComponent(profissionalId)}`
+            : '/pacientes'
+        ),
+      ]);
+      setProfissionais(pros);
       setList(pacientes);
     } catch (e) {
       setError((e as Error).message);
     }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const pros = await fetchJson<Profissional[]>('/profissionais');
-        if (!cancelled) {
-          setProfissionais(pros);
-        }
-      } catch (e) {
-        console.error('Error fetching professionals:', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    loadPacientes();
   }, [profissionalId]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (obsPaciente) {
+      setObsDraft(obsPaciente.observacoes || '');
+    }
+  }, [obsPaciente]);
+
+  const cadastrarPaciente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCadMsg(null);
+    const cpfDigits = cadCpf.replace(/\D/g, '');
+    if (!cadNome.trim() || !cadTel.trim() || cpfDigits.length !== 11) {
+      setCadMsg('Preencha nome, telefone e CPF válido (11 dígitos).');
+      return;
+    }
+    setCadSaving(true);
+    try {
+      await fetchJson('/pacientes/cadastro', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: cadNome.trim(),
+          telefone: cadTel.replace(/\D/g, ''),
+          cpf: cpfDigits,
+          dataNascimento: cadNasc || null,
+        }),
+      });
+      setCadNome('');
+      setCadTel('');
+      setCadCpf('');
+      setCadNasc('');
+      setCadMsg('Paciente cadastrado com sucesso!');
+      await load();
+    } catch (err) {
+      setCadMsg((err as Error).message);
+    } finally {
+      setCadSaving(false);
+    }
+  };
+
   const handleLinkCpf = async (paciente: PacienteRow) => {
-    if (!tempCpf.replace(/\D/g, '')) {
-      alert('CPF inválido');
+    const cleanCpf = tempCpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      alert('CPF inválido (deve conter 11 dígitos)');
       return;
     }
     try {
-      // In our design, we can schedule an empty / placeholder appointment or update client DB record.
-      // But creating/updating the client is done via the getOrCreate API, so we can save it.
-      // Let's call /agendar or a custom endpoint if needed.
-      // Since agendar with CPF creates a client, let's create a client record.
-      // Let's assume we can book or update client by sending an update or creating a dummy appointment,
-      // or we can invoke our new database logic. Let's make sure it updates the client.
-      // We will do a POST to /agendar with a dummy schedule to link the CPF, or since the backend has clienteRepo,
-      // let's simulate by scheduling. Wait! We can also send it to a general endpoint or directly post a prontuario.
-      // Let's save CPF in the state or update the existing consultations for this phone number.
-      // Better: we can register the client or directly save a prontuario which calls getOrCreate on backend!
-      // So if the partner types the CPF, we can save it directly by registering a medical record.
-      // Let's let them save the CPF locally in state or trigger a dummy call.
-      // Let's update all local consultations for this patient to have the CPF, or let the user edit the CPF.
-      
-      // Let's do a quick request or simulation.
-      const updatedList = list.map(p => {
-        if (p.telefone === paciente.telefone) {
-          return { ...p, cpf: tempCpf.replace(/\D/g, '') };
-        }
-        return p;
+      await fetchJson('/pacientes/cadastro', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: paciente.nome,
+          telefone: paciente.telefone.replace(/\D/g, ''),
+          cpf: cleanCpf,
+        }),
       });
-      setList(updatedList);
+      alert('CPF associado com sucesso!');
       setEditingCpfPhone(null);
       setTempCpf('');
-      alert('CPF associado com sucesso!');
+      await load();
     } catch (e) {
       alert('Erro: ' + (e as Error).message);
     }
@@ -139,6 +183,26 @@ export default function PacientesPage() {
     }
   };
 
+  const salvarObservacoes = async () => {
+    if (!obsPaciente) return;
+    setObsSaving(true);
+    try {
+      await fetchJson('/pacientes/observacoes', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          cpf: obsPaciente.cpf || obsPaciente.id,
+          observacoes: obsDraft,
+        }),
+      });
+      setObsPaciente(null);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setObsSaving(false);
+    }
+  };
+
   const handleAddExame = () => {
     if (!newExameNome || !newExameDesc) return;
     setExamesList([
@@ -146,8 +210,8 @@ export default function PacientesPage() {
       {
         nomeExame: newExameNome,
         resultadoDesc: newExameDesc,
-        dataExame: new Date().toISOString().split('T')[0]
-      }
+        dataExame: new Date().toISOString().split('T')[0],
+      },
     ]);
     setNewExameNome('');
     setNewExameDesc('');
@@ -167,24 +231,21 @@ export default function PacientesPage() {
         diagnostico,
         prescricao,
         resultados: examesList,
-        profissionalId: formDocId || null
+        profissionalId: formDocId || null,
       };
 
       await fetchJson('/parceiros/prontuarios', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       alert('Prontuário salvo com sucesso!');
-      
-      // Reset form
       setDiagnostico('');
       setPrescricao('');
       setFormDocId('');
       setExamesList([]);
       setShowAddForm(false);
-      
-      // Reload history
+
       const data = await fetchJson<Prontuario[]>(`/pacientes/${selectedPaciente.cpf}/prontuarios`);
       setProntuarios(data);
     } catch (e) {
@@ -197,7 +258,9 @@ export default function PacientesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-brand-secondary">Pacientes</h1>
-          <p className="text-sm text-slate-600">Histórico de consultas, prontuários médicos e exames anexados.</p>
+          <p className="text-sm text-slate-600">
+            Cadastro independente, prontuários de parceiros e exames estruturados ligados por CPF.
+          </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <div className="w-full rounded-lg border border-slate-200 bg-brand-muted px-3 py-2 sm:w-72">
@@ -228,8 +291,69 @@ export default function PacientesPage() {
         </div>
       </div>
 
+      {/* Cadastrar Paciente Form */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-brand-secondary">Cadastrar Paciente</h2>
+          <p className="text-xs text-slate-500">Registre os dados do paciente com vínculo de CPF.</p>
+        </div>
+        <form onSubmit={cadastrarPaciente} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500">Nome completo</label>
+            <input
+              type="text"
+              value={cadNome}
+              onChange={(e) => setCadNome(e.target.value)}
+              placeholder="Nome"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500">Telefone (com DDD)</label>
+            <input
+              type="text"
+              value={cadTel}
+              onChange={(e) => setCadTel(e.target.value)}
+              placeholder="Telefone"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500">CPF (apenas números)</label>
+            <input
+              type="text"
+              value={cadCpf}
+              onChange={(e) => setCadCpf(e.target.value)}
+              placeholder="CPF"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500">Data de Nascimento</label>
+            <input
+              type="date"
+              value={cadNasc}
+              onChange={(e) => setCadNasc(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={cadSaving}
+            className="w-full rounded-lg bg-brand-primary py-2 text-sm font-semibold text-white hover:bg-brand-secondary disabled:opacity-50"
+          >
+            {cadSaving ? 'Salvando…' : 'Salvar cadastro'}
+          </button>
+        </form>
+        {cadMsg && <p className="text-sm font-medium text-brand-primary">{cadMsg}</p>}
+      </section>
+
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
+      {/* Grid List */}
       <div className="grid gap-4 md:grid-cols-2">
         {filtered.map((p) => (
           <div
@@ -240,58 +364,50 @@ export default function PacientesPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="font-bold text-slate-900 text-lg">{p.nome}</div>
-                  <div className="text-sm text-slate-500">{p.telefone}</div>
-                  <div className="mt-2 text-xs">
-                    {p.cpf ? (
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md font-semibold">
-                        CPF: {p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
-                      </span>
-                    ) : (
-                      <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md font-semibold">
-                        Sem CPF vinculado
-                      </span>
-                    )}
+                  <div className="text-sm text-slate-500">
+                    CPF: {p.cpf ? formatCpfDisplay(p.cpf) : 'Sem CPF vinculado'} · Tel: {p.telefone}
                   </div>
+                  {p.dataNascimento && (
+                    <p className="mt-1 text-xs text-slate-500 font-medium">
+                      Nasc.: {formatIsoDateBR(p.dataNascimento)}
+                    </p>
+                  )}
                 </div>
                 <span className="rounded-full bg-brand-muted px-3 py-1 text-xs font-semibold text-brand-secondary">
                   {p.consultas.length} consulta(s)
                 </span>
               </div>
 
-              {/* Consultas list */}
-              <div className="mt-4 border-t border-slate-100 pt-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Histórico de Visitas</h4>
-                <ul className="space-y-1.5 text-sm">
-                  {p.consultas.slice(0, 3).map((c) => (
-                    <li key={c.id} className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-slate-700">
-                        {c.data} {c.hora}
-                      </span>
-                      {(c.profissionalId || c.servico) && (
-                        <span className="text-slate-500 text-xs">
-                          — {c.profissionalId ? `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : '—'}
-                          {c.servico ? ` · ${String(c.servico).toUpperCase()}` : ''}
+              {p.consultas.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Visitas</h4>
+                  <ul className="space-y-1.5 text-sm">
+                    {p.consultas.slice(0, 3).map((c) => (
+                      <li key={c.id} className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-slate-700">
+                          {c.data} {c.hora}
                         </span>
-                      )}
-                      <StatusBadge status={c.status} />
-                    </li>
-                  ))}
-                  {p.consultas.length > 3 && (
-                    <li className="text-xs text-slate-400 font-medium">
-                      + {p.consultas.length - 3} consulta(s) anterior(es)
-                    </li>
-                  )}
-                </ul>
-              </div>
+                        {(c.profissionalId || c.servico) && (
+                          <span className="text-slate-500 text-xs">
+                            — {c.profissionalId ? `Dr(a). ${proById.get(c.profissionalId)?.nome || '—'}` : '—'}
+                            {c.servico ? ` · ${String(c.servico).toUpperCase()}` : ''}
+                          </span>
+                        )}
+                        <StatusBadge status={c.status} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
-            {/* Actions */}
+            {/* Actions Footer */}
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
               {editingCpfPhone === p.telefone ? (
                 <div className="flex items-center gap-1.5 w-full">
                   <input
                     type="text"
-                    placeholder="Digite o CPF"
+                    placeholder="CPF (11 dígitos)"
                     value={tempCpf}
                     onChange={(e) => setTempCpf(e.target.value)}
                     className="border border-slate-200 rounded px-2.5 py-1 text-xs w-full focus:ring-1 focus:ring-brand-primary"
@@ -300,58 +416,96 @@ export default function PacientesPage() {
                     onClick={() => handleLinkCpf(p)}
                     className="bg-brand-secondary text-white text-xs px-2.5 py-1.5 rounded hover:bg-opacity-90 font-medium"
                   >
-                    Salvar
+                    Vincular
                   </button>
                   <button
                     onClick={() => setEditingCpfPhone(null)}
-                    className="text-slate-400 hover:text-slate-600 text-xs"
+                    className="text-slate-400 hover:text-slate-650 text-xs"
                   >
-                    Cancelar
+                    Fechar
                   </button>
                 </div>
               ) : (
                 <>
-                  {!p.cpf ? (
+                  <div className="flex gap-2">
+                    {!p.cpf && (
+                      <button
+                        onClick={() => {
+                          setEditingCpfPhone(p.telefone);
+                          setTempCpf('');
+                        }}
+                        className="text-brand-secondary hover:text-brand-primary text-xs font-semibold underline"
+                      >
+                        Vincular CPF
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
-                        setEditingCpfPhone(p.telefone);
-                        setTempCpf('');
-                      }}
-                      className="text-brand-secondary hover:text-brand-primary text-xs font-semibold underline"
+                      onClick={() => setObsPaciente(p)}
+                      className="text-slate-500 hover:text-slate-800 text-xs font-semibold underline"
                     >
-                      Vincular CPF
+                      ✏️ Obs
                     </button>
-                  ) : (
-                    <div />
-                  )}
+                  </div>
                   
-                  <button
-                    onClick={() => handleOpenProntuarios(p)}
-                    className="bg-brand-primary text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm hover:bg-opacity-90 flex items-center gap-1"
-                  >
-                    📝 Prontuários & Resultados
-                  </button>
+                  {p.cpf && (
+                    <button
+                      onClick={() => handleOpenProntuarios(p)}
+                      className="bg-brand-primary text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm hover:bg-opacity-90"
+                    >
+                      🔬 Prontuários & Exames
+                    </button>
+                  )}
                 </>
               )}
             </div>
           </div>
         ))}
-        {filtered.length === 0 && !error && (
-          <p className="col-span-2 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-            Nenhum paciente encontrado.
-          </p>
-        )}
       </div>
 
-      {/* Prontuarios Modal Overlay */}
+      {/* Observations Simple Modal */}
+      {obsPaciente && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-brand-secondary">Observações Clínicas</h3>
+              <button onClick={() => setObsPaciente(null)} className="text-slate-400 hover:text-slate-600 text-xl">
+                &times;
+              </button>
+            </div>
+            <textarea
+              value={obsDraft}
+              onChange={(e) => setObsDraft(e.target.value)}
+              rows={5}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none"
+              placeholder="Alergias, preferências, observações médicas..."
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setObsPaciente(null)}
+                className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-semibold"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={salvarObservacoes}
+                disabled={obsSaving}
+                className="bg-brand-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90"
+              >
+                {obsSaving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Prontuarios Modal Overlay */}
       {selectedPaciente && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-100 flex flex-col">
-            {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{selectedPaciente.nome}</h3>
-                <p className="text-sm text-slate-500">CPF: {selectedPaciente.cpf || 'Não informado'}</p>
+                <p className="text-sm text-slate-500">CPF: {formatCpfDisplay(selectedPaciente.cpf)}</p>
               </div>
               <button
                 onClick={() => {
@@ -364,26 +518,22 @@ export default function PacientesPage() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-6 flex-1">
-              {/* Actions & New Prontuário form toggle */}
               <div className="flex justify-between items-center">
-                <h4 className="text-lg font-bold text-brand-secondary">Histórico Médico</h4>
+                <h4 className="text-lg font-bold text-brand-secondary">Histórico de Prontuários</h4>
                 {!showAddForm && (
                   <button
                     onClick={() => setShowAddForm(true)}
                     className="bg-emerald-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
                   >
-                    + Novo Prontuário / Exame
+                    + Novo Prontuário
                   </button>
                 )}
               </div>
 
-              {/* Form to add new medical record */}
               {showAddForm && (
                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
-                  <h5 className="font-bold text-slate-800 text-sm">Adicionar Registro Médico</h5>
-                  
+                  <h5 className="font-bold text-slate-800 text-sm">Adicionar Prontuário</h5>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">Médico Responsável</label>
@@ -403,7 +553,7 @@ export default function PacientesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Diagnóstico / Sintomas</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Diagnóstico</label>
                     <textarea
                       value={diagnostico}
                       onChange={(e) => setDiagnostico(e.target.value)}
@@ -414,30 +564,29 @@ export default function PacientesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Prescrição / Recomendações</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Prescrição</label>
                     <textarea
                       value={prescricao}
                       onChange={(e) => setPrescricao(e.target.value)}
-                      placeholder="Medicamentos, dosagens ou orientações"
+                      placeholder="Medicamentos ou orientações"
                       rows={2}
                       className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none"
                     />
                   </div>
 
-                  {/* Add exam results */}
                   <div className="border-t border-slate-200 pt-3">
                     <label className="block text-xs font-bold text-slate-500 mb-1">Anexar Resultados de Exames</label>
                     <div className="flex gap-2 mb-2">
                       <input
                         type="text"
-                        placeholder="Nome do Exame (ex: Hemograma)"
+                        placeholder="Nome do Exame"
                         value={newExameNome}
                         onChange={(e) => setNewExameNome(e.target.value)}
                         className="border border-slate-200 rounded-lg p-2 text-xs w-1/2 focus:outline-none"
                       />
                       <input
                         type="text"
-                        placeholder="Descrição/Resultado"
+                        placeholder="Resultado"
                         value={newExameDesc}
                         onChange={(e) => setNewExameDesc(e.target.value)}
                         className="border border-slate-200 rounded-lg p-2 text-xs w-1/2 focus:outline-none"
@@ -450,13 +599,11 @@ export default function PacientesPage() {
                         Adicionar
                       </button>
                     </div>
-
                     {examesList.length > 0 && (
-                      <ul className="bg-white rounded-lg p-2 border border-slate-100 space-y-1 divide-y divide-slate-100">
+                      <ul className="bg-white rounded-lg p-2 border border-slate-100 space-y-1">
                         {examesList.map((ex, index) => (
-                          <li key={index} className="text-xs text-slate-600 flex justify-between py-1">
+                          <li key={index} className="text-xs text-slate-650 flex justify-between py-1 border-b border-slate-100">
                             <span><strong>{ex.nomeExame}</strong>: {ex.resultadoDesc}</span>
-                            <span className="text-slate-400">{ex.dataExame}</span>
                           </li>
                         ))}
                       </ul>
@@ -474,18 +621,17 @@ export default function PacientesPage() {
                       onClick={handleSaveProntuario}
                       className="bg-brand-primary text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-opacity-90"
                     >
-                      Gravar Registro
+                      Salvar Prontuário
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Records List */}
               {loadingProntuarios ? (
-                <div className="text-center py-8 text-slate-500">Carregando prontuários...</div>
+                <div className="text-center py-8 text-slate-550">Carregando...</div>
               ) : prontuarios.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 border border-dashed rounded-xl border-slate-200">
-                  Nenhum registro médico ou exame cadastrado para este CPF.
+                  Nenhum prontuário médico registrado para este CPF.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -496,35 +642,29 @@ export default function PacientesPage() {
                           Data: {pr.dataProntuario}
                         </span>
                         <span>
-                          Médico: {pr.profissionalId ? proById.get(pr.profissionalId)?.nome || 'Não identificado' : 'Clínico Geral'}
+                          Médico: {pr.profissionalId ? proById.get(pr.profissionalId)?.nome || '—' : 'Clínico Geral'}
                         </span>
                       </div>
-
                       <div>
-                        <h6 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Diagnóstico</h6>
+                        <h6 className="text-xs font-bold text-slate-450 uppercase">Diagnóstico</h6>
                         <p className="text-sm text-slate-800 mt-1">{pr.diagnostico}</p>
                       </div>
-
                       {pr.prescricao && (
                         <div>
-                          <h6 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Prescrição / Tratamento</h6>
-                          <p className="text-sm text-brand-secondary bg-brand-muted/40 p-2 rounded-lg mt-1 font-medium">
+                          <h6 className="text-xs font-bold text-slate-450 uppercase">Prescrição</h6>
+                          <p className="text-sm text-brand-secondary bg-brand-muted/40 p-2 rounded-lg mt-1">
                             {pr.prescricao}
                           </p>
                         </div>
                       )}
-
                       {pr.resultados && pr.resultados.length > 0 && (
                         <div>
-                          <h6 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Exames / Laudos</h6>
+                          <h6 className="text-xs font-bold text-slate-450 uppercase mb-1">Exames</h6>
                           <div className="grid gap-2 sm:grid-cols-2">
                             {pr.resultados.map((ex, idx) => (
-                              <div key={idx} className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-2.5 text-xs text-emerald-800">
-                                <div className="font-bold text-emerald-950 flex justify-between">
-                                  <span>{ex.nomeExame}</span>
-                                  <span className="font-normal text-slate-400">{ex.dataExame}</span>
-                                </div>
-                                <div className="mt-1 text-emerald-900">{ex.resultadoDesc}</div>
+                              <div key={idx} className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 text-xs text-emerald-800">
+                                <div className="font-bold">{ex.nomeExame}</div>
+                                <div className="mt-1">{ex.resultadoDesc}</div>
                               </div>
                             ))}
                           </div>
@@ -536,14 +676,13 @@ export default function PacientesPage() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
               <button
                 onClick={() => {
                   setSelectedPaciente(null);
                   setShowAddForm(false);
                 }}
-                className="bg-slate-200 text-slate-700 text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-slate-300"
+                className="bg-slate-200 text-slate-700 text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-slate-350"
               >
                 Fechar
               </button>

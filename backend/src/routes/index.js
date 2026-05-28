@@ -22,6 +22,7 @@ import {
   postWebhookTwilio,
   getWebhookVerify,
 } from '../controllers/webhookController.js';
+<<<<<<< HEAD
 import {
   getParceirosBusca,
   postParceiro,
@@ -33,6 +34,10 @@ import {
   getResultadosExames,
 } from '../controllers/prontuarioController.js';
 import { requireAuth } from '../middleware/auth.js';
+=======
+import { postCadastroPaciente, patchPacienteObservacoes } from '../controllers/pacienteController.js';
+import { postContato } from '../controllers/contatoController.js';
+>>>>>>> a6dc9c54528b3420003e3d6a1924ee18b4f4aaf6
 
 const router = Router();
 
@@ -40,10 +45,25 @@ const router = Router();
 router.post('/auth/login', postLogin);
 router.get('/auth/me', getMe);
 
+<<<<<<< HEAD
 // Geolocation/Partners
 router.get('/parceiros/busca', getParceirosBusca);
 router.post('/parceiros', postParceiro);
 router.get('/parceiros/:id', getParceiroDetails);
+=======
+router.post('/agendar', postAgendar);
+router.get('/consultas', getConsultas);
+router.put('/cancelar', putCancelar);
+router.patch('/consultas/status', patchStatus);
+router.delete('/consultas/:id', deleteConsulta);
+router.get('/slots', getSlots);
+router.get('/config', getConfig);
+router.put('/config', putConfig);
+router.get('/pacientes', getPacientes);
+router.post('/pacientes/cadastro', postCadastroPaciente);
+router.patch('/pacientes/observacoes', patchPacienteObservacoes);
+router.post('/contato', postContato);
+>>>>>>> a6dc9c54528b3420003e3d6a1924ee18b4f4aaf6
 
 // Client portal (Public/CPF-identified)
 router.post('/agendar', postAgendar);

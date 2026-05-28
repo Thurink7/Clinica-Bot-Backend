@@ -1,12 +1,15 @@
 import { SessionRepository } from '../repositories/sessionRepository.js';
 import { ConsultaService } from './consultaService.js';
 import { ProfessionalService } from './professionalService.js';
+import { PacienteRepository } from '../repositories/pacienteRepository.js';
 import { sendWhatsAppText } from './whatsappProvider.js';
 import { logger } from '../utils/logger.js';
+import { validarCpfBr, parseDataNascimentoBr } from '../utils/cpf.js';
 
 const MENU = `Olá! Sou o assistente da clínica.
 1 — Agendar consulta
 2 — Falar com atendente
+3 — Reagendar consulta
 
 Responda com o número da opção.`;
 
@@ -26,11 +29,13 @@ export class WhatsappFlowService {
   constructor(
     sessions = new SessionRepository(),
     consultas = new ConsultaService(),
-    professionals = new ProfessionalService()
+    professionals = new ProfessionalService(),
+    pacientes = new PacienteRepository()
   ) {
     this.sessions = sessions;
     this.consultas = consultas;
     this.professionals = professionals;
+    this.pacientes = pacientes;
   }
 
   async handleIncoming(telefoneRaw, textoRaw, options = {}) {
@@ -80,6 +85,85 @@ export class WhatsappFlowService {
 
     const session = (await this.sessions.get(telefone)) || { step: 'menu' };
 
+    if (session.step === 'menu' && text === '3') {
+      await this.sessions.set(telefone, { step: 'reagendar_cpf' });
+      await respond(
+        'Para reagendar com segurança, informe seu CPF (somente números, 11 dígitos, sem pontos ou traços):'
+      );
+      return { ok: true, reply };
+    }
+
+    if (session.step === 'reagendar_cpf') {
+      const v = validarCpfBr(textoRaw);
+      if (!v.ok) {
+        await respond(`${v.message} Tente novamente ou envie MENU para voltar.`);
+        return { ok: true, reply };
+      }
+      await this.sessions.set(telefone, {
+        ...session,
+        step: 'reagendar_nascimento',
+        cpfVerificacao: v.digits,
+      });
+      await respond('Informe sua data de nascimento no formato DD/MM/AAAA (ex.: 08/03/1985):');
+      return { ok: true, reply };
+    }
+
+    if (session.step === 'reagendar_nascimento') {
+      const p = parseDataNascimentoBr(textoRaw);
+      if (!p.ok) {
+        await respond(`${p.message} Tente novamente ou envie MENU.`);
+        return { ok: true, reply };
+      }
+      const cad = await this.pacientes.getByTelefone(telefone);
+      if (cad && cad.cpf && cad.dataNascimento) {
+        if (cad.cpf !== session.cpfVerificacao || cad.dataNascimento !== p.iso) {
+          await respond(
+            'CPF ou data de nascimento não conferem com o cadastro da clínica. Confira os dados e tente novamente ou envie MENU.'
+          );
+          return { ok: true, reply };
+        }
+      }
+      const lista = await this.consultas.listarConsultasReagendar(telefone);
+      if (!lista.length) {
+        await respond(
+          'Não encontramos consultas futuras para este número. Para um novo agendamento, responda 1. Para voltar ao menu, envie MENU.'
+        );
+        await this.sessions.set(telefone, { step: 'menu' });
+        return { ok: true, reply };
+      }
+      const lines = lista.map((c, i) => {
+        const br = formatDateBR(c.data);
+        return `${i + 1} — ${br} às ${c.hora} (${c.nomePaciente || 'Consulta'})`;
+      });
+      await respond(
+        `Escolha qual consulta deseja liberar para reagendamento (responda o número):\n${lines.join(
+          '\n'
+        )}\n\nAo confirmar, o horário atual será cancelado e você poderá agendar outro pela opção 1.`
+      );
+      await this.sessions.set(telefone, {
+        step: 'reagendar_escolher',
+        consultasReagendar: lista,
+        cpfVerificacao: session.cpfVerificacao,
+        nascimentoVerificacao: p.iso,
+      });
+      return { ok: true, reply };
+    }
+
+    if (session.step === 'reagendar_escolher' && session.consultasReagendar) {
+      const idx = parseInt(text, 10);
+      const c = session.consultasReagendar[idx - 1];
+      if (!c) {
+        await respond('Número inválido. Escolha uma opção da lista ou envie MENU.');
+        return { ok: true, reply };
+      }
+      await this.consultas.cancelar(c.id);
+      await this.sessions.set(telefone, { step: 'menu' });
+      await respond(
+        `A consulta de ${formatDateBR(c.data)} às ${c.hora} foi cancelada para liberar reagendamento. ` + MENU
+      );
+      return { ok: true, reply };
+    }
+
     if (session.step === 'escolher_servico') {
       const si = parseInt(text, 10);
       const chosen = session.servicosOfertados?.[si - 1];
@@ -95,7 +179,9 @@ export class WhatsappFlowService {
           return `${i + 1} — DIA ${dia}, MÊS ${mes} e ANO ${ano}`;
         });
         await respond(
-          `Serviço escolhido: ${chosen}\n\nAgora escolha o dia pelo número:\n${lines.join('\n')}`
+          `Serviço escolhido: ${chosen}\n\nPróximos dias úteis com horários — escolha o dia pelo número:\n${lines.join(
+            '\n'
+          )}\n\nDigite MAISDIAS para carregar mais dias úteis.`
         );
         await this.sessions.set(telefone, {
           step: 'escolher_data_servico',
@@ -108,6 +194,38 @@ export class WhatsappFlowService {
     }
 
     if (session.step === 'escolher_data_servico' && session.diasOfertados) {
+      if (text === 'MAISDIAS' || text === 'MAIS' || text === 'MAIS DIAS') {
+        const last = session.diasOfertados[session.diasOfertados.length - 1];
+        const extra = await this.consultas.proximosSlotsResumoApos(last.data, 5);
+        if (!extra.length) {
+          await respond(
+            'Não há mais dias úteis com horários disponíveis no período consultado. Escolha um dia da lista anterior ou envie MENU.'
+          );
+          return { ok: true, reply };
+        }
+        const seen = new Set(session.diasOfertados.map((d) => d.data));
+        const extraFiltered = extra.filter((d) => !seen.has(d.data));
+        if (!extraFiltered.length) {
+          await respond('Não há novos dias para exibir. Escolha um dia da lista ou envie MENU.');
+          return { ok: true, reply };
+        }
+        const merged = [...session.diasOfertados, ...extraFiltered];
+        const lines = merged.map((d, i) => {
+          const br = formatDateBR(d.data);
+          const [dia, mes, ano] = br.split('/');
+          return `${i + 1} — DIA ${dia}, MÊS ${mes} e ANO ${ano}`;
+        });
+        await respond(
+          `Lista atualizada (dias úteis):\n${lines.join(
+            '\n'
+          )}\n\nDigite MAISDIAS para carregar mais dias úteis, ou o número do dia desejado.`
+        );
+        await this.sessions.set(telefone, {
+          ...session,
+          diasOfertados: merged,
+        });
+        return { ok: true, reply };
+      }
       const di = parseInt(text, 10);
       const dia = session.diasOfertados[di - 1];
       if (dia && session.servicoEscolhido) {
@@ -210,7 +328,7 @@ export class WhatsappFlowService {
       }
     }
 
-    if (session.step === 'nome' && text && !/^1$|^2$/.test(text)) {
+    if (session.step === 'nome' && text && !/^1$|^2$|^3$/.test(text)) {
       await this.sessions.set(telefone, {
         step: 'escolher_servico',
         nomePaciente: textoRaw.trim(),
@@ -234,7 +352,7 @@ export class WhatsappFlowService {
 
     // (fluxo antigo escolher_data removido; agora a data vem após escolher o serviço)
 
-    if (text === '1' || text.includes('AGENDAR')) {
+    if (text === '1' || (text.includes('AGENDAR') && !text.includes('REAGENDAR'))) {
       await this.sessions.set(telefone, { step: 'nome' });
       await respond('Informe seu nome completo:');
       return { ok: true, reply };

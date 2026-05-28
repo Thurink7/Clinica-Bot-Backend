@@ -10,18 +10,6 @@ export function Hero() {
       <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/10 blur-3xl" />
 
       <div className="container relative mx-auto px-6">
-        <div className="mb-10 flex items-center justify-center">
-          <div className="inline-flex items-center gap-3 rounded-full border border-primary/15 bg-white/70 px-5 py-2 shadow-sm backdrop-blur">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              Plataforma B2B · Saúde Digital
-            </span>
-          </div>
-        </div>
-
         <div className="animate-fade-up mx-auto mb-14 max-w-5xl text-center">
           <h1 className="font-display mb-7 text-[2.75rem] font-bold leading-[1.02] tracking-tight text-primary md:text-6xl lg:text-7xl xl:text-[5.5rem]">
             A inteligência por trás <br className="hidden md:block" />
