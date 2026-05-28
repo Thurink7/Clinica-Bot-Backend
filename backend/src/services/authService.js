@@ -44,7 +44,7 @@ export class AuthService {
     }
 
     const token = jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, parceiroId: user.parceiroId || null },
       jwtSecret(),
       { expiresIn: JWT_EXP }
     );
@@ -55,11 +55,12 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nome: user.nome || null,
+        parceiroId: user.parceiroId || null,
       },
     };
   }
 
-  /** @returns {Promise<{ id: string, email: string, nome: string | null } | null>} */
+  /** @returns {Promise<{ id: string, email: string, nome: string | null, parceiroId: string | null } | null>} */
   async userFromBearer(authHeader) {
     const raw = String(authHeader || '');
     const m = raw.match(/^Bearer\s+(.+)$/i);
@@ -74,6 +75,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nome: user.nome || null,
+        parceiroId: user.parceiroId || decoded.parceiroId || null,
       };
     } catch {
       return null;

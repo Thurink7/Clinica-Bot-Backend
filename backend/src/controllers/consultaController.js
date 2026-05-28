@@ -7,7 +7,11 @@ const consultaRepo = new ConsultaRepository();
 
 export async function postAgendar(req, res, next) {
   try {
-    const out = await service.agendar(req.body);
+    const parceiroId = req.user?.parceiroId || req.body?.parceiroId || 'default';
+    const out = await service.agendar({
+      ...req.body,
+      parceiroId,
+    });
     res.status(201).json(out);
   } catch (e) {
     next(e);
@@ -17,7 +21,8 @@ export async function postAgendar(req, res, next) {
 export async function getConsultas(req, res, next) {
   try {
     const { data, de, ate } = req.query;
-    const list = await service.listar({ data, de, ate });
+    const parceiroId = req.user?.parceiroId || req.query?.parceiroId || null;
+    const list = await service.listar({ data, de, ate, parceiroId });
     res.json(list);
   } catch (e) {
     next(e);
@@ -56,13 +61,13 @@ export async function deleteConsulta(req, res, next) {
 
 export async function getSlots(req, res, next) {
   try {
-    const { data } = req.query;
+    const { data, profissionalId, parceiroId } = req.query;
     if (!data) {
       const err = new Error('Query data (YYYY-MM-DD) obrigatória');
       err.status = 400;
       throw err;
     }
-    const livres = await service.horariosDisponiveis(data);
+    const livres = await service.horariosDisponiveis(data, profissionalId || null, parceiroId || null);
     res.json({ data, horarios: livres });
   } catch (e) {
     next(e);
@@ -73,7 +78,8 @@ const configRepo = new ConfigRepository();
 
 export async function getConfig(req, res, next) {
   try {
-    const cfg = await configRepo.get();
+    const parceiroId = req.user?.parceiroId || req.query?.parceiroId || 'default';
+    const cfg = await configRepo.get(parceiroId);
     res.json(cfg);
   } catch (e) {
     next(e);
@@ -82,7 +88,8 @@ export async function getConfig(req, res, next) {
 
 export async function putConfig(req, res, next) {
   try {
-    const cfg = await configRepo.update(req.body);
+    const parceiroId = req.user?.parceiroId || req.body?.parceiroId || 'default';
+    const cfg = await configRepo.update(req.body, parceiroId);
     res.json(cfg);
   } catch (e) {
     next(e);
@@ -94,9 +101,20 @@ export async function getPacientes(req, res, next) {
     const profissionalId = req.query?.profissionalId
       ? String(req.query.profissionalId)
       : null;
+    const parceiroId = req.user?.parceiroId || null;
     const list = profissionalId
-      ? await consultaRepo.listPacientesAggregatedByProfessional(profissionalId)
-      : await consultaRepo.listPacientesAggregated();
+      ? await consultaRepo.listPacientesAggregatedByProfessional(profissionalId, parceiroId)
+      : await consultaRepo.listPacientesAggregated(parceiroId);
+    res.json(list);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getClientAgendamentos(req, res, next) {
+  try {
+    const { cpf } = req.params;
+    const list = await consultaRepo.listByCpf(cpf);
     res.json(list);
   } catch (e) {
     next(e);

@@ -84,6 +84,7 @@ export type ClinicConfig = {
 export type PacienteRow = {
   telefone: string;
   nome: string;
+  cpf?: string;
   consultas: {
     id: string;
     data: string;

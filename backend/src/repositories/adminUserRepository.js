@@ -22,11 +22,12 @@ export class AdminUserRepository {
     return { id: ref.id, ...ref.data() };
   }
 
-  async create({ email, passwordHash, nome = null }) {
+  async create({ email, passwordHash, nome = null, parceiroId = null }) {
     const payload = {
       email: String(email).toLowerCase().trim(),
       passwordHash,
       nome: nome || null,
+      parceiroId: parceiroId || null,
       createdAt: new Date().toISOString(),
     };
     const ref = await this.col.add(payload);

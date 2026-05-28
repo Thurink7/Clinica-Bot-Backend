@@ -1,5 +1,6 @@
 import { ConsultaRepository } from '../repositories/consultaRepository.js';
 import { ConfigRepository } from '../repositories/configRepository.js';
+import { ClienteRepository } from '../repositories/clienteRepository.js';
 import { generateSlotsForDay } from '../utils/slots.js';
 import { combineLocal } from '../utils/datetime.js';
 import { sendWhatsAppText } from './whatsappProvider.js';
@@ -10,14 +11,16 @@ const VALID_STATUS = new Set(['agendado', 'confirmado', 'cancelado']);
 export class ConsultaService {
   constructor(
     consultas = new ConsultaRepository(),
-    config = new ConfigRepository()
+    config = new ConfigRepository(),
+    clientes = new ClienteRepository()
   ) {
     this.consultas = consultas;
     this.config = config;
+    this.clientes = clientes;
   }
 
   async agendar(
-    { nomePaciente, telefone, data, hora, profissionalId = null, servico = null },
+    { nomePaciente, telefone, data, hora, profissionalId = null, servico = null, parceiroId = null, cpf = null },
     opts = {}
   ) {
     if (!nomePaciente || !telefone || !data || !hora) {
@@ -26,7 +29,7 @@ export class ConsultaService {
       throw err;
     }
 
-    const cfg = await this.config.get();
+    const cfg = await this.config.get(parceiroId);
     const slots = generateSlotsForDay(data, cfg);
     if (!slots.includes(hora)) {
       const err = new Error('Horário inválido ou fora do expediente');
@@ -34,16 +37,26 @@ export class ConsultaService {
       throw err;
     }
 
-    const conflict = await this.consultas.hasConflict(data, hora, null, profissionalId);
+    const conflict = await this.consultas.hasConflict(data, hora, null, profissionalId, parceiroId);
     if (conflict) {
       const err = new Error('Horário já ocupado');
       err.status = 409;
       throw err;
     }
 
+    let clientData = null;
+    if (cpf) {
+      clientData = await this.clientes.getOrCreate(cpf, {
+        nome: nomePaciente,
+        telefone: String(telefone).replace(/\D/g, ''),
+      });
+    }
+
     const row = {
       nomePaciente: String(nomePaciente).trim(),
       telefone: String(telefone).replace(/\D/g, ''),
+      cpf: clientData ? clientData.cpf : (cpf || null),
+      parceiroId: parceiroId || 'default',
       data,
       hora,
       profissionalId: profissionalId || null,
@@ -54,7 +67,7 @@ export class ConsultaService {
     };
 
     const created = await this.consultas.create(row);
-    logger.info('consulta_criada', { id: created.id, data, hora });
+    logger.info('consulta_criada', { id: created.id, data, hora, parceiroId });
 
     const shouldNotify = opts.notify !== false;
     if (shouldNotify) {
@@ -71,8 +84,8 @@ export class ConsultaService {
     return created;
   }
 
-  async listar({ data, de, ate } = {}) {
-    if (data) return this.consultas.listByDate(data);
+  async listar({ data, de, ate, parceiroId = null } = {}) {
+    if (data) return this.consultas.listByDate(data, parceiroId);
     const today = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const s =
@@ -81,7 +94,7 @@ export class ConsultaService {
     const e =
       ate ||
       `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-    return this.consultas.listByDateRange(s, e);
+    return this.consultas.listByDateRange(s, e, parceiroId);
   }
 
   async cancelar(id) {
@@ -130,12 +143,12 @@ export class ConsultaService {
     return this.consultas.delete(id);
   }
 
-  async horariosDisponiveis(dataStr, profissionalId = null) {
-    const cfg = await this.config.get();
+  async horariosDisponiveis(dataStr, profissionalId = null, parceiroId = null) {
+    const cfg = await this.config.get(parceiroId);
     const slots = generateSlotsForDay(dataStr, cfg);
     const ocupadas = profissionalId
-      ? await this.consultas.listByDateAndProfessional(dataStr, profissionalId)
-      : await this.consultas.listByDate(dataStr);
+      ? await this.consultas.listByDateAndProfessional(dataStr, profissionalId, parceiroId)
+      : await this.consultas.listByDate(dataStr, parceiroId);
     const taken = new Set(
       ocupadas.filter((c) => c.status !== 'cancelado').map((c) => c.hora)
     );
@@ -143,7 +156,7 @@ export class ConsultaService {
   }
 
   /** Próximos N dias com slots livres (para menu WhatsApp) */
-  async proximosSlotsResumo(dias = 3) {
+  async proximosSlotsResumo(dias = 3, parceiroId = null) {
     const out = [];
     const d = new Date();
     for (let i = 0; i < dias; i++) {
@@ -151,7 +164,7 @@ export class ConsultaService {
       cur.setDate(d.getDate() + i);
       const pad = (n) => String(n).padStart(2, '0');
       const ds = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`;
-      const livres = await this.horariosDisponiveis(ds);
+      const livres = await this.horariosDisponiveis(ds, null, parceiroId);
       if (livres.length) out.push({ data: ds, horarios: livres });
     }
     return out;
