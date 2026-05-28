@@ -39,24 +39,28 @@ export class ConsultaRepositoryFirestore {
     return { id, deleted: true };
   }
 
-  async listByDate(dateStr) {
-    const snap = await this.col.where('data', '==', dateStr).get();
+  async listByDate(dateStr, parceiroId = null) {
+    let q = this.col.where('data', '==', dateStr);
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
+    const snap = await q.get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
-  async listByDateAndProfessional(dateStr, profissionalId) {
-    const snap = await this.col
+  async listByDateAndProfessional(dateStr, profissionalId, parceiroId = null) {
+    let q = this.col
       .where('data', '==', dateStr)
-      .where('profissionalId', '==', profissionalId)
-      .get();
+      .where('profissionalId', '==', profissionalId);
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
+    const snap = await q.get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
-  async listByDateRange(startDateStr, endDateStr) {
-    const snap = await this.col
+  async listByDateRange(startDateStr, endDateStr, parceiroId = null) {
+    let q = this.col
       .where('data', '>=', startDateStr)
-      .where('data', '<=', endDateStr)
-      .get();
+      .where('data', '<=', endDateStr);
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
+    const snap = await q.get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
@@ -70,9 +74,17 @@ export class ConsultaRepositoryFirestore {
       .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
   }
 
-  async hasConflict(dateStr, hora, excludeId = null, profissionalId = null) {
+  async listByCpf(cpfRaw) {
+    const cpf = String(cpfRaw || '').replace(/\D/g, '');
+    if (!cpf) return [];
+    const snap = await this.col.where('cpf', '==', cpf).get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async hasConflict(dateStr, hora, excludeId = null, profissionalId = null, parceiroId = null) {
     let q = this.col.where('data', '==', dateStr).where('hora', '==', hora);
     if (profissionalId) q = q.where('profissionalId', '==', profissionalId);
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
     const snap = await q.get();
     for (const doc of snap.docs) {
       if (excludeId && doc.id === excludeId) continue;
@@ -92,13 +104,17 @@ export class ConsultaRepositoryFirestore {
     return out;
   }
 
-  async listPacientesAggregated() {
-    const snap = await this.col.get();
+  async listPacientesAggregated(parceiroId = null) {
+    let q = this.col;
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
+    const snap = await q.get();
     return this._aggregatePacientesFromDocs(snap.docs);
   }
 
-  async listPacientesAggregatedByProfessional(profissionalId) {
-    const snap = await this.col.where('profissionalId', '==', profissionalId).get();
+  async listPacientesAggregatedByProfessional(profissionalId, parceiroId = null) {
+    let q = this.col.where('profissionalId', '==', profissionalId);
+    if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
+    const snap = await q.get();
     return this._aggregatePacientesFromDocs(snap.docs);
   }
 
@@ -112,8 +128,12 @@ export class ConsultaRepositoryFirestore {
         byPhone.set(phone, {
           telefone: phone,
           nome: row.nomePaciente,
+          cpf: row.cpf || row.clienteCpf || '',
           consultas: [],
         });
+      }
+      if (row.cpf || row.clienteCpf) {
+        byPhone.get(phone).cpf = row.cpf || row.clienteCpf;
       }
       byPhone.get(phone).consultas.push({
         id: doc.id,

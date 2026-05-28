@@ -37,20 +37,24 @@ export class ConsultaRepositoryMongo {
     return { id, deleted: true };
   }
 
-  async listByDate(dateStr) {
-    const docs = await this.col().find({ data: dateStr }).toArray();
+  async listByDate(dateStr, parceiroId = null) {
+    const query = { data: dateStr };
+    if (parceiroId) query.parceiroId = parceiroId;
+    const docs = await this.col().find(query).toArray();
     return toEntityList(docs);
   }
 
-  async listByDateAndProfessional(dateStr, profissionalId) {
-    const docs = await this.col().find({ data: dateStr, profissionalId }).toArray();
+  async listByDateAndProfessional(dateStr, profissionalId, parceiroId = null) {
+    const query = { data: dateStr, profissionalId };
+    if (parceiroId) query.parceiroId = parceiroId;
+    const docs = await this.col().find(query).toArray();
     return toEntityList(docs);
   }
 
-  async listByDateRange(startDateStr, endDateStr) {
-    const docs = await this.col()
-      .find({ data: { $gte: startDateStr, $lte: endDateStr } })
-      .toArray();
+  async listByDateRange(startDateStr, endDateStr, parceiroId = null) {
+    const query = { data: { $gte: startDateStr, $lte: endDateStr } };
+    if (parceiroId) query.parceiroId = parceiroId;
+    const docs = await this.col().find(query).toArray();
     return toEntityList(docs);
   }
 
@@ -63,9 +67,17 @@ export class ConsultaRepositoryMongo {
       .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
   }
 
-  async hasConflict(dateStr, hora, excludeId = null, profissionalId = null) {
+  async listByCpf(cpfRaw) {
+    const cpf = String(cpfRaw || '').replace(/\D/g, '');
+    if (!cpf) return [];
+    const docs = await this.col().find({ cpf }).toArray();
+    return toEntityList(docs);
+  }
+
+  async hasConflict(dateStr, hora, excludeId = null, profissionalId = null, parceiroId = null) {
     const filter = { data: dateStr, hora, status: { $ne: 'cancelado' } };
     if (profissionalId) filter.profissionalId = profissionalId;
+    if (parceiroId) filter.parceiroId = parceiroId;
     const docs = await this.col().find(filter).toArray();
     for (const doc of docs) {
       const entity = toEntity(doc);
@@ -82,13 +94,17 @@ export class ConsultaRepositoryMongo {
     return toEntityList(docs);
   }
 
-  async listPacientesAggregated() {
-    const docs = await this.col().find({}).toArray();
+  async listPacientesAggregated(parceiroId = null) {
+    const query = {};
+    if (parceiroId) query.parceiroId = parceiroId;
+    const docs = await this.col().find(query).toArray();
     return this._aggregatePacientesFromEntities(toEntityList(docs));
   }
 
-  async listPacientesAggregatedByProfessional(profissionalId) {
-    const docs = await this.col().find({ profissionalId }).toArray();
+  async listPacientesAggregatedByProfessional(profissionalId, parceiroId = null) {
+    const query = { profissionalId };
+    if (parceiroId) query.parceiroId = parceiroId;
+    const docs = await this.col().find(query).toArray();
     return this._aggregatePacientesFromEntities(toEntityList(docs));
   }
 
@@ -101,8 +117,12 @@ export class ConsultaRepositoryMongo {
         byPhone.set(phone, {
           telefone: phone,
           nome: row.nomePaciente,
+          cpf: row.cpf || row.clienteCpf || '',
           consultas: [],
         });
+      }
+      if (row.cpf || row.clienteCpf) {
+        byPhone.get(phone).cpf = row.cpf || row.clienteCpf;
       }
       byPhone.get(phone).consultas.push({
         id: row.id,
