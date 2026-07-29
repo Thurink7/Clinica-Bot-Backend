@@ -28,6 +28,20 @@ export class ProfessionalRepositoryMongo {
     return toEntityList(docs);
   }
 
+  async listAll() {
+    return toEntityList(await this.col().find({}).toArray());
+  }
+
+  async update(id, partial) {
+    await this.col().updateOne({ $or: [{ _id: id }, { legacyId: id }] }, { $set: partial });
+    return this.getById(id);
+  }
+
+  async delete(id) {
+    await this.col().deleteOne({ $or: [{ _id: id }, { legacyId: id }] });
+    return { id, deleted: true };
+  }
+
   async getById(id) {
     const doc = await this.col().findOne({ $or: [{ _id: id }, { legacyId: id }] });
     return toEntity(doc);

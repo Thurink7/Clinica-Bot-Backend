@@ -31,6 +31,21 @@ export class ProfessionalRepositoryFirestore {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
+  async listAll() {
+    const snap = await this.col.get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async update(id, partial) {
+    await this.col.doc(id).set(partial, { merge: true });
+    return this.getById(id);
+  }
+
+  async delete(id) {
+    await this.col.doc(id).delete();
+    return { id, deleted: true };
+  }
+
   async getById(id) {
     const snap = await this.col.doc(id).get();
     if (!snap.exists) return null;

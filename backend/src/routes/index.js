@@ -6,6 +6,7 @@ import {
   putCancelar,
   patchStatus,
   deleteConsulta,
+  patchReagendar,
   getSlots,
   getConfig,
   putConfig,
@@ -16,6 +17,8 @@ import {
   postProfissional,
   getProfissionais,
   getServicos,
+  patchProfissionalAtivo,
+  deleteProfissional,
 } from '../controllers/professionalController.js';
 import {
   postWebhookWhatsapp,
@@ -33,7 +36,7 @@ import {
   getResultadosExames,
 } from '../controllers/prontuarioController.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
-import { postCadastroPaciente, patchPacienteObservacoes } from '../controllers/pacienteController.js';
+import { postCadastroPaciente, patchPacienteObservacoes, deletePaciente } from '../controllers/pacienteController.js';
 import { postContato } from '../controllers/contatoController.js';
 
 const router = Router();
@@ -62,13 +65,17 @@ router.get('/consultas', requireAuth, getConsultas);
 router.put('/cancelar', requireAuth, putCancelar);
 router.patch('/consultas/status', requireAuth, patchStatus);
 router.delete('/consultas/:id', requireAuth, deleteConsulta);
+router.patch('/consultas/:id/reagendar', requireAuth, patchReagendar);
 router.get('/config', requireAuth, getConfig);
 router.put('/config', requireAuth, putConfig);
 router.get('/pacientes', requireAuth, getPacientes);
+router.delete('/pacientes/:id', requireAuth, deletePaciente);
 router.post('/parceiros/prontuarios', requireAuth, postProntuario);
 
 router.post('/profissionais', requireAuth, postProfissional);
 router.get('/profissionais', getProfissionais);
+router.patch('/profissionais/:id/ativo', requireAuth, patchProfissionalAtivo);
+router.delete('/profissionais/:id', requireAuth, deleteProfissional);
 router.get('/servicos', getServicos);
 
 // Webhooks

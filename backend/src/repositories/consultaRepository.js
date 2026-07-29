@@ -5,5 +5,5 @@ import { ConsultaRepositoryMongo } from './mongo/consultaRepository.mongo.js';
 export const ConsultaRepository = createHybridRepository(
   ConsultaRepositoryFirestore,
   ConsultaRepositoryMongo,
-  ['create', 'update', 'delete']
+  ['create', 'update', 'delete', 'deleteByPatient']
 );

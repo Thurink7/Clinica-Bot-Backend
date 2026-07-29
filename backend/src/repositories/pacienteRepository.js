@@ -5,5 +5,5 @@ import { PacienteRepositoryMongo } from './mongo/pacienteRepository.mongo.js';
 export const PacienteRepository = createHybridRepository(
   PacienteRepositoryFirestore,
   PacienteRepositoryMongo,
-  ['upsert', 'updateObservacoes']
+  ['upsert', 'updateObservacoes', 'delete']
 );

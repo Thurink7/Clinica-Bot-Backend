@@ -5,5 +5,5 @@ import { ProfessionalRepositoryMongo } from './mongo/professionalRepository.mong
 export const ProfessionalRepository = createHybridRepository(
   ProfessionalRepositoryFirestore,
   ProfessionalRepositoryMongo,
-  ['create']
+  ['create', 'update', 'delete']
 );

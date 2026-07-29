@@ -76,6 +76,7 @@ export type Profissional = {
   especialidade?: string;
   telefone?: string;
   email?: string;
+  diasTrabalho?: number[];
 };
 
 export type ClinicConfig = {

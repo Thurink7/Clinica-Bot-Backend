@@ -24,6 +24,8 @@ export default function ProfissionaisPage() {
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [diasTrabalho, setDiasTrabalho] = useState<number[]>([1, 2, 3, 4, 5]);
+  const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   async function load() {
     setLoading(true);
@@ -68,6 +70,7 @@ export default function ProfissionaisPage() {
           especialidade: especialidade.trim(),
           telefone: onlyDigits(telefone),
           email: email.trim().toLowerCase(),
+          diasTrabalho,
         }),
       });
       setSuccess('Profissional cadastrado com sucesso.');
@@ -76,12 +79,22 @@ export default function ProfissionaisPage() {
       setTelefone('');
       setEmail('');
       setFieldErrors({});
+      setDiasTrabalho([1, 2, 3, 4, 5]);
       await load();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSaving(false);
     }
+  }
+
+  async function alterarAtivo(p: Profissional) {
+    try { await fetchJson(`/profissionais/${p.id}/ativo`, { method: 'PATCH', body: JSON.stringify({ ativo: !p.ativo }) }); await load(); } catch (e) { setError((e as Error).message); }
+  }
+
+  async function excluir(p: Profissional) {
+    if (!window.confirm(`Excluir ${p.nome}? Esta ação não pode ser desfeita.`)) return;
+    try { await fetchJson(`/profissionais/${p.id}`, { method: 'DELETE' }); await load(); } catch (e) { setError((e as Error).message); }
   }
 
   return (
@@ -124,6 +137,10 @@ export default function ProfissionaisPage() {
               }`}
             />
             {fieldErrors.nome && <p className="mt-1 text-xs text-red-600">{fieldErrors.nome}</p>}
+          </div>
+          <div className="sm:col-span-2">
+            <span className="block text-sm font-medium text-slate-700">Dias de atendimento</span>
+            <div className="mt-2 flex flex-wrap gap-2">{dias.map((dia, index) => <label key={dia} className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${diasTrabalho.includes(index) ? 'border-brand-primary bg-brand-light text-brand-secondary' : 'border-slate-200 text-slate-600'}`}><input type="checkbox" className="sr-only" checked={diasTrabalho.includes(index)} onChange={() => setDiasTrabalho((current) => current.includes(index) ? current.filter((d) => d !== index) : [...current, index].sort())} />{dia}</label>)}</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Especialidade</label>
@@ -242,6 +259,8 @@ export default function ProfissionaisPage() {
                     </span>
                   ))}
                 </div>
+                <p className="mt-3 text-xs text-slate-500">Atende: {(p.diasTrabalho || [1, 2, 3, 4, 5]).map((d) => dias[d]).join(', ')}</p>
+                <div className="mt-4 flex gap-2 border-t border-slate-100 pt-3"><button onClick={() => alterarAtivo(p)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{p.ativo ? 'Tornar inativo' : 'Tornar ativo'}</button><button onClick={() => excluir(p)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Excluir</button></div>
               </li>
             ))}
           </ul>

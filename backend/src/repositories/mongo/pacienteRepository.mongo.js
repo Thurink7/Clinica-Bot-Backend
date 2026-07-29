@@ -77,4 +77,9 @@ export class PacienteRepositoryMongo {
     );
     return this.getByCpf(id);
   }
+
+  async delete(id) {
+    await this.col().deleteOne({ $or: [{ _id: String(id) }, { cpf: String(id) }] });
+    return { id, deleted: true };
+  }
 }

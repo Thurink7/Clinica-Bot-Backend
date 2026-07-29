@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 
 export const metadata: Metadata = {
+  icons: { icon: '/logo1.png' },
   title: 'Clínica Agenda — Reduza faltas e automatize sua clínica',
   description:
     'Plataforma B2B para clínicas: agendamentos automáticos, lembretes inteligentes via WhatsApp e mais pacientes atendidos.',

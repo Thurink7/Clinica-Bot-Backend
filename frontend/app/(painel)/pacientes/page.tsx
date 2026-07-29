@@ -163,6 +163,15 @@ export default function PacientesPage() {
     }
   };
 
+  const excluirPaciente = async (paciente: PacienteRow) => {
+    if (!paciente.cpf) { setError('Só é possível excluir um paciente com CPF vinculado.'); return; }
+    if (!window.confirm(`Excluir o cadastro de ${paciente.nome}?`)) return;
+    try {
+      await fetchJson(`/pacientes/${paciente.cpf}`, { method: 'DELETE' });
+      setList((rows) => rows.filter((p) => p.cpf !== paciente.cpf));
+    } catch (e) { setError((e as Error).message); }
+  };
+
   const handleOpenProntuarios = async (paciente: PacienteRow) => {
     const cpf = paciente.cpf || tempCpf || '';
     if (!cpf) {
@@ -445,6 +454,7 @@ export default function PacientesPage() {
                     >
                       ✏️ Obs
                     </button>
+                    {p.cpf && <button onClick={() => excluirPaciente(p)} className="text-red-600 hover:text-red-800 text-xs font-semibold underline">Excluir</button>}
                   </div>
                   
                   {p.cpf && (

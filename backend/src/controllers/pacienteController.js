@@ -1,6 +1,8 @@
 import { PacienteRepository } from '../repositories/pacienteRepository.js';
+import { ConsultaRepository } from '../repositories/consultaRepository.js';
 
 const pacienteRepo = new PacienteRepository();
+const consultaRepo = new ConsultaRepository();
 
 export async function postCadastroPaciente(req, res, next) {
   try {
@@ -20,4 +22,12 @@ export async function patchPacienteObservacoes(req, res, next) {
   } catch (e) {
     next(e);
   }
+}
+
+export async function deletePaciente(req, res, next) {
+  try {
+    const paciente = await pacienteRepo.getByCpf(req.params.id);
+    await consultaRepo.deleteByPatient(req.params.id, paciente?.telefone);
+    res.json(await pacienteRepo.delete(req.params.id));
+  } catch (e) { next(e); }
 }

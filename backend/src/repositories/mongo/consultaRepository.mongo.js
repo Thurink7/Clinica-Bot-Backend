@@ -37,6 +37,13 @@ export class ConsultaRepositoryMongo {
     return { id, deleted: true };
   }
 
+  async deleteByPatient(cpf, telefone) {
+    const clauses = [];
+    if (cpf) clauses.push({ cpf: String(cpf).replace(/\D/g, '') });
+    if (telefone) clauses.push({ telefone: String(telefone).replace(/\D/g, '') });
+    if (clauses.length) await this.col().deleteMany({ $or: clauses });
+  }
+
   async listByDate(dateStr, parceiroId = null) {
     const query = { data: dateStr };
     if (parceiroId) query.parceiroId = parceiroId;

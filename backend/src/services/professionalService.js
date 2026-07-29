@@ -5,7 +5,7 @@ export class ProfessionalService {
     this.repo = repo;
   }
 
-  async cadastrar({ nome, especialidade, telefone, email, servicos, ativo } = {}) {
+  async cadastrar({ nome, especialidade, telefone, email, servicos, ativo, diasTrabalho } = {}) {
     const n = String(nome || '').trim();
     const esp = String(especialidade || '').trim();
     const tel = String(telefone || '').replace(/\D/g, '');
@@ -49,12 +49,19 @@ export class ProfessionalService {
       email: em,
       servicos: norm,
       ativo: ativo !== false,
+      diasTrabalho: Array.isArray(diasTrabalho) && diasTrabalho.length ? diasTrabalho.map(Number).filter((d) => d >= 0 && d <= 6) : [1, 2, 3, 4, 5],
     });
   }
 
   async listarAtivos() {
     return this.repo.listActive();
   }
+
+  async listar() { return this.repo.listAll(); }
+
+  async atualizarAtivo(id, ativo) { return this.repo.update(id, { ativo: Boolean(ativo) }); }
+
+  async excluir(id) { return this.repo.delete(id); }
 
   async listarServicos() {
     const pros = await this.repo.listActive();

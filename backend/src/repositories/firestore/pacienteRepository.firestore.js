@@ -72,4 +72,9 @@ export class PacienteRepositoryFirestore {
     );
     return this.getByCpf(id);
   }
+
+  async delete(id) {
+    await this.col.doc(String(id)).delete();
+    return { id, deleted: true };
+  }
 }

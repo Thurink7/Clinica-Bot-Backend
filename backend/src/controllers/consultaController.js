@@ -111,6 +111,10 @@ export async function deleteConsulta(req, res, next) {
   }
 }
 
+export async function patchReagendar(req, res, next) {
+  try { res.json(await service.reagendar(req.params.id, req.body?.data, req.body?.hora)); } catch (e) { next(e); }
+}
+
 export async function getSlots(req, res, next) {
   try {
     const { data, profissionalId, parceiroId } = req.query;

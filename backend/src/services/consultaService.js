@@ -1,6 +1,7 @@
 import { ConsultaRepository } from '../repositories/consultaRepository.js';
 import { ConfigRepository } from '../repositories/configRepository.js';
 import { ClienteRepository } from '../repositories/clienteRepository.js';
+import { ProfessionalRepository } from '../repositories/professionalRepository.js';
 import { generateSlotsForDay } from '../utils/slots.js';
 import { combineLocal } from '../utils/datetime.js';
 import { sendWhatsAppText } from './whatsappProvider.js';
@@ -12,11 +13,13 @@ export class ConsultaService {
   constructor(
     consultas = new ConsultaRepository(),
     config = new ConfigRepository(),
-    clientes = new ClienteRepository()
+    clientes = new ClienteRepository(),
+    profissionais = new ProfessionalRepository()
   ) {
     this.consultas = consultas;
     this.config = config;
     this.clientes = clientes;
+    this.profissionais = profissionais;
   }
 
   async agendar(
@@ -30,6 +33,7 @@ export class ConsultaService {
     }
 
     const cfg = await this.config.get(parceiroId);
+    if (profissionalId) await this.validarProfissionalNoDia(profissionalId, data);
     const slots = generateSlotsForDay(data, cfg);
     if (!slots.includes(hora)) {
       const err = new Error('Horário inválido ou fora do expediente');
@@ -145,6 +149,9 @@ export class ConsultaService {
   }
 
   async horariosDisponiveis(dataStr, profissionalId = null, parceiroId = null) {
+    if (profissionalId) {
+      try { await this.validarProfissionalNoDia(profissionalId, dataStr); } catch { return []; }
+    }
     const cfg = await this.config.get(parceiroId);
     const slots = generateSlotsForDay(dataStr, cfg);
     const ocupadas = profissionalId
@@ -154,6 +161,28 @@ export class ConsultaService {
       ocupadas.filter((c) => c.status !== 'cancelado').map((c) => c.hora)
     );
     return slots.filter((h) => !taken.has(h));
+  }
+
+  async reagendar(id, data, hora) {
+    const cur = await this.consultas.getById(id);
+    if (!cur) { const err = new Error('Consulta não encontrada'); err.status = 404; throw err; }
+    const cfg = await this.config.get(cur.parceiroId || null);
+    if (!generateSlotsForDay(data, cfg).includes(hora)) { const err = new Error('Horário inválido ou fora do expediente'); err.status = 409; throw err; }
+    if (cur.profissionalId) await this.validarProfissionalNoDia(cur.profissionalId, data);
+    if (await this.consultas.hasConflict(data, hora, id, cur.profissionalId || null, cur.parceiroId || null)) { const err = new Error('Horário já ocupado'); err.status = 409; throw err; }
+    return this.consultas.update(id, { data, hora });
+  }
+
+  async validarProfissionalNoDia(profissionalId, data) {
+    const profissional = await this.profissionais.getById(profissionalId);
+    if (!profissional || profissional.ativo === false) {
+      const err = new Error('Profissional indisponível'); err.status = 409; throw err;
+    }
+    const days = profissional.diasTrabalho || [1, 2, 3, 4, 5];
+    const day = new Date(`${data}T12:00:00`).getDay();
+    if (!days.includes(day)) {
+      const err = new Error('Profissional não atende neste dia'); err.status = 409; throw err;
+    }
   }
 
   /**

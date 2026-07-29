@@ -39,6 +39,15 @@ export class ConsultaRepositoryFirestore {
     return { id, deleted: true };
   }
 
+  async deleteByPatient(cpf, telefone) {
+    const queries = [];
+    if (cpf) queries.push(this.col.where('cpf', '==', String(cpf).replace(/\D/g, '')));
+    if (telefone) queries.push(this.col.where('telefone', '==', String(telefone).replace(/\D/g, '')));
+    const batch = this.db.batch();
+    for (const q of queries) (await q.get()).docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+
   async listByDate(dateStr, parceiroId = null) {
     let q = this.col.where('data', '==', dateStr);
     if (parceiroId) q = q.where('parceiroId', '==', parceiroId);
