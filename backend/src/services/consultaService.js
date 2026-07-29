@@ -20,7 +20,7 @@ export class ConsultaService {
   }
 
   async agendar(
-    { nomePaciente, telefone, data, hora, profissionalId = null, servico = null, parceiroId = null, cpf = null },
+    { nomePaciente, telefone, data, hora, profissionalId = null, servico = null, parceiroId = null, cpf = null, dataNascimento = null },
     opts = {}
   ) {
     if (!nomePaciente || !telefone || !data || !hora) {
@@ -56,6 +56,7 @@ export class ConsultaService {
       nomePaciente: String(nomePaciente).trim(),
       telefone: String(telefone).replace(/\D/g, ''),
       cpf: clientData ? clientData.cpf : (cpf || null),
+      dataNascimento: dataNascimento ? String(dataNascimento).slice(0, 10) : null,
       parceiroId: parceiroId || 'default',
       data,
       hora,

@@ -103,6 +103,12 @@ select {
   @apply outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:ring-offset-2;
 }
 
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm;
+  }
+}
+
 @layer utilities {
   .gradient-hero {
     background: var(--gradient-hero);

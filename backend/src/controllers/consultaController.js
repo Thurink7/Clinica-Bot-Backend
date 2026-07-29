@@ -56,6 +56,14 @@ export async function postAgendar(req, res, next) {
       ...req.body,
       parceiroId,
     });
+    if (req.body?.cpf) {
+      await pacienteRepo.upsert({
+        nome: req.body.nomePaciente,
+        telefone: req.body.telefone,
+        cpf: req.body.cpf,
+        dataNascimento: req.body.dataNascimento,
+      });
+    }
     res.status(201).json(out);
   } catch (e) {
     next(e);
@@ -111,7 +119,8 @@ export async function getSlots(req, res, next) {
       err.status = 400;
       throw err;
     }
-    const livres = await service.horariosDisponiveis(data, profissionalId || null, parceiroId || null);
+    const tenantId = req.user?.parceiroId || parceiroId || null;
+    const livres = await service.horariosDisponiveis(data, profissionalId || null, tenantId);
     res.json({ data, horarios: livres });
   } catch (e) {
     next(e);

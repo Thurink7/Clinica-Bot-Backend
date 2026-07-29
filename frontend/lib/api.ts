@@ -61,6 +61,10 @@ export type Consulta = {
   telefone: string;
   data: string;
   hora: string;
+  profissionalId?: string | null;
+  servico?: string | null;
+  cpf?: string | null;
+  dataNascimento?: string | null;
   status: 'agendado' | 'confirmado' | 'cancelado';
 };
 
