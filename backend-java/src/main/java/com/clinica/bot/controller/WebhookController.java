@@ -47,7 +47,8 @@ public class WebhookController {
             var value = (Map<String, Object>) change.get("value");
             var msg = (Map<String, Object>) ((java.util.List<?>) value.get("messages")).get(0);
             String text = "";
-            if ("text".equals(msg.get("type"))) text = String.valueOf(((Map<?, ?>) msg.get("text")).getOrDefault("body", ""));
+            if ("text".equals(msg.get("type"))) {
+                text = String.valueOf(((Map<?, ?>) msg.get("text")).get("body"));
             return Map.of("from", String.valueOf(msg.get("from")), "text", text);
         } catch (Exception ignored) { return null; }
     }
