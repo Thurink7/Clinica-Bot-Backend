@@ -1,7 +1,7 @@
 package com.clinica.bot.bootstrap;
 
 import com.clinica.bot.config.ClinicaProperties;
-import com.clinica.bot.repository.firestore.AdminUserFirestoreRepository;
+import com.clinica.bot.repository.AdminUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class AdminBootstrap {
 
     private final ClinicaProperties properties;
-    private final AdminUserFirestoreRepository adminUserRepo;
+    private final AdminUserRepository adminUserRepo;
     private final PasswordEncoder passwordEncoder;
 
     @EventListener(ApplicationReadyEvent.class)

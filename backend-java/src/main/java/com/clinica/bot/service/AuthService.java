@@ -1,7 +1,7 @@
 package com.clinica.bot.service;
 
 import com.clinica.bot.exception.ApiException;
-import com.clinica.bot.repository.firestore.AdminUserFirestoreRepository;
+import com.clinica.bot.repository.AdminUserRepository;
 import com.clinica.bot.security.AuthUser;
 import com.clinica.bot.security.JwtService;
 import io.jsonwebtoken.Claims;
@@ -19,7 +19,7 @@ public class AuthService {
 
     private static final Pattern BEARER = Pattern.compile("^Bearer\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
-    private final AdminUserFirestoreRepository adminUserRepo;
+    private final AdminUserRepository adminUserRepo;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
