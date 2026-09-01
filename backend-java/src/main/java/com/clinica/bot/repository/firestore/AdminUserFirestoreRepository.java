@@ -30,8 +30,10 @@ public class AdminUserFirestoreRepository {
             if (snap.isEmpty()) return Optional.empty();
             QueryDocumentSnapshot doc = snap.getDocuments().get(0);
             return Optional.of(toUser(doc.getId(), doc.getData()));
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("Operação interrompida ao buscar usuário por email", e);
+        } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
@@ -41,15 +43,26 @@ public class AdminUserFirestoreRepository {
             var doc = db().collection("admin_users").document(id).get().get();
             if (!doc.exists()) return Optional.empty();
             return Optional.of(toUser(doc.getId(), doc.getData()));
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("Operação interrompida ao buscar usuário por ID", e);
+        } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
     public AdminUser create(String email, String passwordHash, String nome, String parceiroId) {
+        DocumentReference ref = db().collection("admin_users").document();
+        return saveToFirestore(ref, email, passwordHash, nome, parceiroId);
+    }
+
+    public AdminUser createWithId(String id, String email, String passwordHash, String nome, String parceiroId) {
+        DocumentReference ref = db().collection("admin_users").document(id);
+        return saveToFirestore(ref, email, passwordHash, nome, parceiroId);
+    }
+
+    private AdminUser saveToFirestore(DocumentReference ref, String email, String passwordHash, String nome, String parceiroId) {
         try {
-            DocumentReference ref = db().collection("admin_users").document();
             Map<String, Object> payload = Map.of(
                     "email", email.toLowerCase().trim(),
                     "passwordHash", passwordHash,
@@ -59,8 +72,10 @@ public class AdminUserFirestoreRepository {
             );
             ref.set(payload).get();
             return toUser(ref.getId(), payload);
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("Operação interrompida ao criar usuário no Firestore", e);
+        } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
