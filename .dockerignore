@@ -1,0 +1,11 @@
+.git
+.idea
+node_modules
+**/node_modules
+frontend/.next
+backend-java/target
+*.log
+.env
+.env.*
+!frontend/.env.local.example
+!backend-java/.env.example
