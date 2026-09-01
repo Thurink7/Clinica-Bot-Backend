@@ -1,0 +1,54 @@
+server:
+  port: ${PORT:3001}
+
+spring:
+  application:
+    name: clinica-bot-api
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017}
+      database: ${MONGO_DB_NAME:clinica}
+
+clinica:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-jwt-secret-change-me}
+    expiration-days: 7
+  cors:
+    extra-origins: ${CORS_ORIGINS:}
+  database:
+    read: ${DB_READ:firestore}
+    write: ${DB_WRITE:firestore}
+  admin:
+    bootstrap-email: ${ADMIN_BOOTSTRAP_EMAIL:}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+    bootstrap-nome: ${ADMIN_BOOTSTRAP_NOME:Administrador}
+  whatsapp:
+    api-url: ${WHATSAPP_API_URL:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+  twilio:
+    account-sid: ${TWILIO_ACCOUNT_SID:}
+    auth-token: ${TWILIO_AUTH_TOKEN:}
+    whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
+  reminder:
+    window-minutes: ${REMINDER_WINDOW_MINUTES:10}
+
+firebase:
+  credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
+  service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
+  service-account-b64: ${FIREBASE_SERVICE_ACCOUNT_B64:}
+
+logging:
+  level:
+    com.clinica.bot: INFO
+    org.springframework.security: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

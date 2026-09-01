@@ -1,0 +1,6 @@
+# Perfil de produção para operar somente com MongoDB.
+# Execute com SPRING_PROFILES_ACTIVE=mongo ou --spring.profiles.active=mongo.
+clinica:
+  database:
+    read: mongo
+    write: mongo
