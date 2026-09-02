@@ -58,9 +58,12 @@ public class ConsultaService {
         }
 
         if (cpf != null && !cpf.isBlank()) {
-            clienteRepo.getOrCreate(cpf, Map.of("nome", nome, "telefone", telefone));
+            try {
+                clienteRepo.getOrCreate(cpf, Map.of("nome", nome, "telefone", telefone));
+            } catch (Exception e) {
+                log.warn("Ignorando criacao de cliente no Firestore pois o serviço está desabilitado: {}", e.getMessage());
+            }
         }
-
         Map<String, Object> row = new HashMap<>();
         row.put("nomePaciente", nome.trim());
         row.put("telefone", telefone);
