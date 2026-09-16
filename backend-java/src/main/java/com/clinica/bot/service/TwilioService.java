@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TwilioService {
 
-    private static final String APPOINTMENT_REMINDER_CONTENT_SID = "HXb5b62575ed64ff6129ad7cbe11f983e";
+    private static final String APPOINTMENT_REMINDER_CONTENT_SID = "HXb5b62575e6e4ff6129ad7c8efe1f983e";
 
     private final ClinicaProperties properties;
     private final ObjectMapper objectMapper;
