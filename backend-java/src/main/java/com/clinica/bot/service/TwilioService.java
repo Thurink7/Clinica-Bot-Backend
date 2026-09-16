@@ -33,7 +33,7 @@ public class TwilioService {
         String contentVariables = contentVariables(date, time);
 
         try {
-            Message message = Message.creator(new PhoneNumber(to), new PhoneNumber(from), null)
+            Message message = Message.creator(new PhoneNumber(to), new PhoneNumber(from), (String) null)
                     .setContentSid(APPOINTMENT_REMINDER_CONTENT_SID)
                     .setContentVariables(contentVariables)
                     .create();
