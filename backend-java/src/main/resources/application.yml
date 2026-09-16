@@ -31,9 +31,9 @@ clinica:
     phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
     verify-token: ${WHATSAPP_VERIFY_TOKEN:}
   twilio:
-    account-sid: ${TWILIO_ACCOUNT_SID:}
-    auth-token: ${TWILIO_AUTH_TOKEN:}
-    whatsapp-from: ${TWILIO_WHATSAPP_FROM:}
+    account-sid: ${TWILIO_ACCOUNT_SID:AC67a4d28144aa07e92489aba72d69817d}
+    auth-token: ${TWILIO_AUTH_TOKEN:51371c76bd756cc744da963236df3f2c}
+    whatsapp-from: ${TWILIO_WHATSAPP_FROM:whatsapp:+14155238886}
   reminder:
     window-minutes: ${REMINDER_WINDOW_MINUTES:10}
 
