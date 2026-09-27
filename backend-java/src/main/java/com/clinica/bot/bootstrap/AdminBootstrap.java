@@ -20,9 +20,13 @@ public class AdminBootstrap {
 
     @EventListener(ApplicationReadyEvent.class)
     public void ensureBootstrapAdmin() {
+        if (!properties.getAdmin().isBootstrapEnabled()) {
+            return;
+        }
         String email = properties.getAdmin().getBootstrapEmail();
         String password = properties.getAdmin().getBootstrapPassword();
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            log.warn("bootstrap_admin_skipped: defina ADMIN_BOOTSTRAP_ENABLED=true com email e senha válidos");
             return;
         }
         String normalized = email.trim().toLowerCase();

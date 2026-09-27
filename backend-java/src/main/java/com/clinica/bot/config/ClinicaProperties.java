@@ -42,6 +42,7 @@ public class ClinicaProperties {
     @Getter
     @Setter
     public static class Admin {
+        private boolean bootstrapEnabled = false;
         private String bootstrapEmail = "";
         private String bootstrapPassword = "";
         private String bootstrapNome = "Administrador";

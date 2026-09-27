@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
-/** Initializes the Twilio SDK once, when the application starts. */
+/** Initializes the Twilio SDK once, when credentials are configured. */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -19,7 +19,8 @@ public class TwilioConfig {
     void initialize() {
         ClinicaProperties.Twilio twilio = properties.getTwilio();
         if (!StringUtils.hasText(twilio.getAccountSid()) || !StringUtils.hasText(twilio.getAuthToken())) {
-            throw new IllegalStateException("As credenciais do Twilio devem ser configuradas para iniciar a aplicação.");
+            log.info("Twilio SDK não inicializado: credenciais ausentes (envio WhatsApp usará mock ou Meta API)");
+            return;
         }
 
         Twilio.init(twilio.getAccountSid(), twilio.getAuthToken());
